@@ -2,7 +2,7 @@ import torch
 import os, yaml
 from typing import Dict
 
-def read_yaml(config_path: str) -> Dict:
+def read_config(config_path: str) -> Dict:
     """
     ===========================================
     == Reads a YAML file (GitHUB.com/HooM4N) ==
@@ -16,7 +16,7 @@ def read_yaml(config_path: str) -> Dict:
         print(f"** Error reading config file: {e} **") 
     return None
 
-def write_yaml(config: Dict, config_path: str):
+def write_config(config: Dict, config_path: str):
     """
     ==========================================================
     == Writes a dictionary to YAML file (GitHUB.com/HooM4N) ==
@@ -41,3 +41,12 @@ def resolve_device(use_accelerator: bool=True) -> torch.device:
         device = torch.device("cpu")
     print(f"*** Using device: {device.type} ***")
     return device
+
+def ensure_dirs(paths:dict):
+    """
+    ============================================
+    == Ensures dirs exist (GitHUB.com/HooM4N) ==
+    ============================================
+    """
+    for _,p in paths.items():
+        os.makedirs(p, exist_ok=True)

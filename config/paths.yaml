@@ -1,0 +1,3 @@
+config: config/
+data_dir: data/sherlock_holmes/
+models: models/

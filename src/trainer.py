@@ -5,6 +5,7 @@ from collections import deque
 from datetime import datetime
 from tqdm import tqdm
 from typing import Callable, Dict
+from .tokenizer import Tokenizer
 
 def trainer(
     model: torch.nn.Module,
@@ -12,11 +13,12 @@ def trainer(
     config: Dict,
     paths: Dict,
     device: torch.device, 
-    scheduler: torch.optim.lr_scheduler.LRScheduler,
+    scheduler: torch.optim.lr_scheduler.ReduceLROnPlateau,
     detach_hidden: Callable, 
     train_ds: torch.utils.data.Dataset,
     val_ds: torch.utils.data.Dataset,
-    loss_fn: Callable, 
+    loss_fn: Callable,
+    tokenizer: Tokenizer,
     checkpoint_path: str = None
 ) -> torch.nn.Module:
     """
@@ -69,7 +71,9 @@ def trainer(
 
         # logger
         train_logs["train_loss"].append(total_loss / len(train_ds))
-        val_loss = evaluate(val_ds)
+        val_loss = evaluate(
+            model, val_ds, loss_fn, device, config, detach_hidden
+        )
         train_logs["val_loss"].append(val_loss)
         train_logs["val_metric"].append(math.exp(val_loss))
         train_logs["lr"].append(optimizer.param_groups[0]['lr'])
@@ -117,7 +121,7 @@ def trainer(
         json.dump(config, f, indent=2)
     with open(os.path.join(run_dir, f"training_logs.json"), "w") as f:
         json.dump(train_logs, f, indent=2)
-    
+    tokenizer.save(os.path.join(run_dir, "tokenizer.json"))
     print(f"*** Run {run_name} completed. Artifacts saved in: {run_dir} ***")
     return model
 
@@ -130,7 +134,7 @@ def evaluate(
     device: torch.device, 
     config: Dict, 
     detach_hidden: Callable,
-    disable_progress_bar: bool = False
+    disable_progress_bar: bool = True
 ) -> float:
     """
     ======================================================================
