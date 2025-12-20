@@ -14,8 +14,7 @@ def get_wikitext(dataset_name_or_path:str) -> Tuple[str, str, str]:
     
     train_corpus = " ".join(f"{t} <eos>" for t in dataset["train"]["clean_text"])
     val_corpus = " ".join(f"{t} <eos>" for t in dataset["validation"]["clean_text"])
-    test_corpus = " ".join(f"{t} <eos>" for t in dataset["test"]["clean_text"])
-    return train_corpus, val_corpus, test_corpus
+    return train_corpus, val_corpus
 
     
 def is_valid_row(row, len_thresh=16):
