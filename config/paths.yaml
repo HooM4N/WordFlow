@@ -1,3 +1,6 @@
-config: config/
+config_path: config/config.yaml
+data_name: sherlock_holmes
 data_dir: data/sherlock_holmes/
-models: models/
+models_dir: models/
+checkpoint_path: null
+glove_embeddings_path: /mnt/f/ML-Files/PreTrained-Models/Embeddings/wiki_giga_2024_200_MFT20_vectors_seed_2024_alpha_0.75_eta_0.05_combined.txt

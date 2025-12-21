@@ -2,6 +2,8 @@ batch_size: 128
 early_stopping_epsilon: 0.0003
 early_stopping_patience: 3
 enable_mixed_precision: true
+use_glove_embeddings: false
+glove_dim: 200
 grad_clip_norm: 0.5
 lr_scheduler_params:
   factor: 0.5
@@ -16,9 +18,9 @@ model_params:
   num_layers: 2
   out_dropout_p: 0.5
   proj_nonlinearity: false
-n_epochs: 3
+n_epochs: 2
 optimizer_params:
   lr: 0.002
   weight_decay: 2.0e-05
 seq_len: 64
-vocab_size: 30000
+max_vocab_size: 30000

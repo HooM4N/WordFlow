@@ -25,7 +25,7 @@ class Tokenizer():
     ):
         assert tokenize_method in ["whitespace", "nltk"]
         assert unk_token in special_tokens
-        if preprocessor:
+        if preprocessor is not None:
             assert callable(preprocessor)
         if tokenize_method == "nltk":
             self._ensure_nltk_data()
@@ -47,13 +47,16 @@ class Tokenizer():
             self.word2idx[token] = len(self.idx2word)-1
 
     def _add_special_tokens(self):
-        if self.special_tokens:
+        if self.special_tokens is not None:
             for token in self.special_tokens:
                 self._add_token(token)
 
     def _ensure_nltk_data(self):
         import nltk
-        for resource in ["punkt", "punkt_tab"]:
+        for resource in [
+            #"punkt", 
+            "punkt_tab",
+        ]:
             try:
                 nltk.data.find(f"tokenizers/{resource}")
             except LookupError:

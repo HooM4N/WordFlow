@@ -11,7 +11,12 @@ class TruncatedBPTTDataset(Dataset):
     - __len__ returns the number of batches.
     - __getitem__ returns X: (batch_size, seq_len) and Y: one timestep shifted to the right.
     """
-    def __init__(self, corpus_tokens_ids: list, batch_size: int =256, seq_len: int = 128):
+    def __init__(
+        self, 
+        corpus_tokens_ids: list, 
+        batch_size: int =256, 
+        seq_len: int = 128
+    ):
         full_seq = torch.tensor(corpus_tokens_ids, dtype=torch.long)
         # trim to multiple of batch_size
         stream_len = full_seq.size(0) // batch_size

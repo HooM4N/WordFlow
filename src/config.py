@@ -49,4 +49,35 @@ def ensure_dirs(paths:dict):
     ============================================
     """
     for _,p in paths.items():
-        os.makedirs(p, exist_ok=True)
+        if p is not None and p.endswith("_dir"):
+            os.makedirs(p, exist_ok=True)
+
+
+def model_summary(model: torch.nn.Module, width: int = 80):
+    """
+    =============================================================
+    == Displays Summary of Model Paramters (GiTHUB.com/HooM4N) ==
+    =============================================================
+    """
+    print("="*width)
+    print(f"Parameter Count Summary for {model.__class__.__name__}".center(width))
+    print("="*width)
+    print(f"{'Module':20} | {'Class':15} | {'Trainable':10} | {'Frozen':10} | {'Total':10}")
+    print("-"*width)
+    total_trainable, total_frozen = 0, 0
+
+    for name, m in model.named_modules():
+        if not name: 
+            continue
+        trainable_params = sum(p.numel() for p in m.parameters(recurse=False) if p.requires_grad)
+        frozen_params = sum(p.numel() for p in m.parameters(recurse=False) if not p.requires_grad)
+        total_params = trainable_params + frozen_params
+
+        total_trainable += trainable_params
+        total_frozen += frozen_params
+
+        print(f"{name:20} | {m.__class__.__name__:15} | {trainable_params:<10,} | {frozen_params:<10,} | {total_params:<10,}")
+
+    print("-"*width)
+    print(f"{'TOTAL':20} | {'':15} | {total_trainable:<10,} | {total_frozen:<10,} | {total_trainable+total_frozen:<10,}")
+    print("="*width)
