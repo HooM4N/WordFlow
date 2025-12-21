@@ -32,8 +32,8 @@ def get_wikitext(dataset_name_or_dir:str) -> Tuple[str, str, str]:
     dataset = dataset.filter(is_valid_row)
     dataset = dataset.map(wikitext_preprocessor)
     
-    train_corpus = " ".join(f"{t} <eos>" for t in dataset["train"]["clean_text"])
-    val_corpus = " ".join(f"{t} <eos>" for t in dataset["validation"]["clean_text"])
+    train_corpus = " ".join(f"{t} <eos> " for t in dataset["train"]["clean_text"])
+    val_corpus = " ".join(f"{t} <eos> " for t in dataset["validation"]["clean_text"])
     return train_corpus, val_corpus
 
 def get_sherlock_holmes(data_dir:str) -> Tuple[str, str]:

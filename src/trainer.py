@@ -48,8 +48,7 @@ def trainer(
     model.train()
     config["enable_mixed_precision"] = True if device.type == "cuda" else False
     scaler = torch.amp.GradScaler(enabled = config["enable_mixed_precision"])
-    best_loss, es_counter, best_state = float('inf'), 0, None
-    last_checkpoints = deque(maxlen=3)
+    best_loss, es_counter, best_epoch, best_ckpnt_path = float('inf'), 0, None, None
     run_name = datetime.now().strftime("CausalLSTM_run_%m-%d_%H-%M")
     print(f"*** Starting run {run_name} ***")
 
@@ -93,19 +92,19 @@ def trainer(
                 f"lr: {train_logs['lr'][-1]}, " 
                 f"epoch time: {train_logs['epoch_time'][-1]:.2f}s"
             )
-    
+            
             # lr scheduler
             scheduler.step(val_loss)
     
             # checkpoints
-            ckpnt_path =  os.path.join(paths["models_dir"], f"CausalLSTM_ckpnt_{epoch+1}.pt") 
-            torch.save(model.state_dict(), ckpnt_path)
-            last_checkpoints.append(ckpnt_path)
+            torch.save(model.state_dict(), os.path.join(paths["models_dir"], f"CausalLSTM_ckpnt_last.pt"))
     
             # track best model
             if val_loss < best_loss - config["early_stopping_epsilon"]:
                 best_loss = val_loss
-                best_state = model.state_dict()
+                best_epoch = epoch + 1
+                best_ckpnt_path = os.path.join(paths["models_dir"], f"CausalLSTM_ckpnt_best.pt")
+                torch.save(model.state_dict(), best_ckpnt_path)
                 es_counter = 0
             else:
                 es_counter += 1
@@ -120,14 +119,18 @@ def trainer(
     
     finally:
         # restore best model
-        if best_state is not None:
-            model.load_state_dict(best_state)
+        if best_ckpnt_path is not None:
+            model.load_state_dict(
+                torch.load(best_ckpnt_path, map_location=device, weights_only=True)
+            )
+            print(f"*** Restoring best model from epoch: {best_epoch} ***")
     
         # save artifacts
         run_dir = os.path.join(paths["models_dir"], run_name)
         os.makedirs(run_dir, exist_ok=True)
-        torch.save(model.state_dict(), os.path.join(run_dir, f"CausalLSTM_ckpnt.pt"))
+        torch.save(model.state_dict(), os.path.join(run_dir, f"CausalLSTM_ckpnt_{epoch+1}.pt"))
         write_config(config, os.path.join(run_dir, f"config.yaml"))
+        write_config(paths, os.path.join(run_dir, f"paths.yaml"))
         with open(os.path.join(run_dir, f"training_logs.json"), "w") as f:
             json.dump(train_logs, f, indent=2)
         tokenizer.save(os.path.join(run_dir, "tokenizer.json"))

@@ -2,9 +2,9 @@ import re, unicodedata
    
 def is_valid_row(row, len_thresh=16):
     """
-    ==========================================
-    == Masks valid rows in WikiText dataset ==
-    ==========================================
+    =========================================================================
+    == Masks valid rows in WikiText dataset (GitHub.com/HooM4N/CausalLSTM) ==
+    =========================================================================
     """
     text = row["text"].strip()
     if text == "": # empty rows
@@ -18,51 +18,56 @@ def is_valid_row(row, len_thresh=16):
 
 def wikitext_preprocessor(row):
     """
-    ===========================================================
-    == Aggressive preprocessing utility for WikiText dataset ==
-    ===========================================================
+    ==========================================================================================
+    == Aggressive preprocessing utility for WikiText dataset (GitHub.com/HooM4N/CausalLSTM) ==
+    ==========================================================================================
     Functions:
     - Lowercase + ASCII normalize
     - Fix WikiText punctuation artifacts
     - Bucket numbers, handle ordinals
     - Clean whitespace, strip noise
     """
+    import unicodedata
+    import re
+
     t = row["text"]
-    t = unicodedata.normalize("NFKD", t.lower()).encode("ascii", "ignore").decode("ascii") # lowercase + unicode → ascii
+    t = unicodedata.normalize("NFKD", t.lower()).encode("ascii", "ignore").decode("ascii")  # lowercase + unicode → ascii
     artifact_map = {"@-@": "-", "@.@": ".", "@,@": ","}
-    
-    for pat, repl in artifact_map.items(): # fix wikitext artifacts
+
+    for pat, repl in artifact_map.items():  # fix wikitext artifacts
         t = t.replace(pat, repl)
-    
-    t = re.sub(r"[–—−]", "-", t) # normalize dashes
-    t = re.sub(r"\([^)]*\)", " ", t) # remove parentheses and content
+
+    t = re.sub(r"[–—−]", "-", t)  # normalize dashes
+    t = re.sub(r"\([^)]*\)", " ", t)  # remove parentheses and content
+
     roman_map = {
-    "i": "1", "ii": "2", "iii": "3", "iv": "4", "v": "5",
-    "vi": "6", "vii": "7", "viii": "8", "ix": "9", "x": "10"
+        "i": "1", "ii": "2", "iii": "3", "iv": "4", "v": "5",
+        "vi": "6", "vii": "7", "viii": "8", "ix": "9", "x": "10"
     }
-    t = re.sub(r"\b(i|ii|iii|iv|v)\b", lambda m: roman_map[m.group()], t) # roman numerals i–v → digits
-    t = re.sub(r"\.{3,}", ".", t) # normalize ellipses (3+ dots) → "."
-    t = re.sub(r"[^a-z0-9\.\,\;\:\!\?\'\-\s]", " ", t) # keep essential punctuation only
-    t = re.sub(r"\b\d+\s*,\s*\d+\b", "<num>", t) # collapse comma-formatted numbers → "<num>"
-    t = re.sub(r"\b(\d+)(st|nd|rd|th)\b", r"\1 th", t) # handle ordinals like 19th, 21st → "19 th"
-    
+    t = re.sub(r"\b(i|ii|iii|iv|v)\b", lambda m: roman_map[m.group()], t)  # roman numerals i–v → digits
+    t = re.sub(r"\.{3,}", ".", t)  # normalize ellipses (3+ dots) → "."
+    t = re.sub(r"[^a-z0-9\.\,\;\:\!\?\'\-\s]", " ", t)  # keep essential punctuation only
+    t = re.sub(r"\b\d+\s*,\s*\d+\b", " <num> ", t)  # collapse comma-formatted numbers → "<num>"
+    t = re.sub(r"\b(\d+)(st|nd|rd|th)\b", lambda m: f" {m.group(1)} th ", t)  # handle ordinals like 19th, 21st → "19 th"
+
     def num_bucket(m):
         n = int(m.group())
         if 0 <= n <= 9:
             return str(n)
         if 1500 <= n <= 2099:
-            return "<year>"
-        return "<num>"
+            return " <year> "  
+        return " <num> "
 
-    t = re.sub(r"\d+", num_bucket, t) # number bucketing
-    t = re.sub(r"\s+", " ", t).strip() # whitespace normalization
+    t = re.sub(r"\d+", num_bucket, t)  # number bucketing
+    t = re.sub(r"\s+", " ", t).strip()  # whitespace normalization
     return {"clean_text": t}
+
 
 def normalize_text_gutenberg(text: str) -> str:
     """
-    ============================================================
-    == Text normalization utility for Project Gutenberg books ==
-    ============================================================
+    ===========================================================================================
+    == Text normalization utility for Project Gutenberg books (GitHub.com/HooM4N/CausalLSTM) ==
+    ===========================================================================================
     - Lowercases and removes BOM markers 
     - Normalizes quotes, dashes, ellipses, and underscores 
     - Converts newlines to spaces or <eos> markers 

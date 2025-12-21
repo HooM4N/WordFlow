@@ -48,8 +48,8 @@ def ensure_dirs(paths:dict):
     == Ensures dirs exist (GitHUB.com/HooM4N) ==
     ============================================
     """
-    for _,p in paths.items():
-        if p is not None and p.endswith("_dir"):
+    for k,p in paths.items():
+        if p is not None and k.endswith("_dir"):
             os.makedirs(p, exist_ok=True)
 
 

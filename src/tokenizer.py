@@ -81,17 +81,25 @@ class Tokenizer():
     def tokenize(self, text:str) -> list[str]:
         assert isinstance(text, str)
         text = self.normalizer(text)
+        
         # regex-based tokenization
         if self.tokenize_method == "whitespace":
             return re.findall(r"<[^<>]+>|[A-Za-z]+(?:'[A-Za-z]+)*|[^\w\s<>]", text)
+        
         # nltk penn tree bank tokenization
         elif self.tokenize_method == "nltk":
             specials = re.findall(r"<[^<>]+>", text)
-            mapping = {f"__SPECIAL{i}__": s for i, s in enumerate(specials)}
-            for i, s in enumerate(specials): 
-                text = text.replace(s, f"__SPECIAL{i}__")
+            if specials:
+                placeholder_map = {f"__SPECIAL{i}__": s for i, s in enumerate(specials)}
+                pattern = re.compile("|".join(re.escape(s) for s in specials))
+                text = pattern.sub(lambda m: f"__SPECIAL{specials.index(m.group(0))}__", text)
+        
             tokens = [t for t in nltk_word_tokenize(text) if t not in {"``", "''"}]
-            return [mapping.get(t, t) for t in tokens]
+            if specials:
+                tokens = [placeholder_map.get(t, t) for t in tokens]
+        
+            return tokens
+
 
     def _build_counter(self, iterator: Iterable[str]) -> Counter:
         counter = Counter()
