@@ -55,3 +55,60 @@ def text_cleaner(text: str) -> str:
     text = re.sub(r"\d+", num_bucket, text) # normalize numbers
 
     return " ".join(text.split())
+
+##############################
+## SpaCy Entity Replacement ##
+##############################
+_nlp = None
+
+def _get_nlp(model="en_core_web_md"):
+    """
+    ==========================================
+    == Lazy loader for spaCy and nlp module ==
+    ==========================================
+    - Download pretrained model first:
+        - python -m spacy download en_core_web_md
+        - https://github.com/explosion/spacy-models/releases/
+    """
+    global _nlp
+    if _nlp is None:
+        import spacy
+        _nlp = spacy.load(model)
+    return _nlp
+
+def replace_entities(
+    text: str,
+    labels: list = ["PERSON","NORP","LANGUAGE","GPE","DATE","ORG"],
+) -> str:
+    """
+    ==============================================================
+    == Entity Replacement Utility via spaCy (GitHUB.com/HooM4N) ==
+    ==============================================================
+    - Download pretrained model first (using en_core_web_md)
+    - Available Entities:
+        * PERSON      -> people, including fictional
+        * NORP        -> nationalities, religions, groups
+        * FAC         -> buildings, airports, highways
+        * ORG         -> companies, institutions, organizations
+        * GPE         -> countries, cities, states
+        * LOC         -> non-GPE locations, mountains, rivers
+        * PRODUCT     -> products, objects, vehicles
+        * EVENT       -> named events, wars, disasters
+        * WORK_OF_ART -> titles of books, songs, movies
+        * LAW         -> named legal documents
+        * LANGUAGE    -> named languages
+        * DATE        -> absolute/relative dates
+        * TIME        -> times smaller than a day
+        * PERCENT     -> percentage values
+        * MONEY       -> monetary values
+        * QUANTITY    -> measurements, weights, distances
+        * ORDINAL     -> first, second, third, etc.
+        * CARDINAL    -> numbers not otherwise categorized
+    """
+    nlp = _get_nlp()
+    doc = nlp(text)
+    new_text = text
+    for ent in doc.ents:
+        if ent.label_ in labels:
+            new_text = new_text.replace(ent.text, f" <{ent.label_}> ")
+    return new_text

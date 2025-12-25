@@ -69,9 +69,6 @@ class CausalLSTM(nn.Module):
         c_0 = w.new_zeros((self.num_layers, batch_size, self.hidden_dim))
         return (h_0, c_0)
 
-    def get_param_count(self):
-        return sum([p.numel() for p in self.parameters() if p.requires_grad])
-
     def forward(
         self, x: torch.Tensor, hidden: Tuple[torch.Tensor, torch.Tensor]
     ) -> Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:

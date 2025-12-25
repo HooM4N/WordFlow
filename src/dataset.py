@@ -42,3 +42,45 @@ class TruncatedBPTTDataset(Dataset):
     def get_info(self):
         print(f"*** batch size: {self.batch_size} | sequence len: {self.seq_len} ***")
         print(f"*** stream lenght: {self.stream_len} | number of batches: {self.__len__()} ***")
+
+
+class StatelessLSTMDataset(Dataset):
+    """
+    ==============================================================================
+    == Stateless LSTM Language Modeling Dataset (GiTHUB.com/HoomM4N/CausalLSTM) ==
+    ==============================================================================
+    """
+    def __init__(
+        self, 
+        corpus_ids: list, 
+        max_seq_len: int = 32, 
+        min_seq_len: int = 20,
+    ):
+
+        self.max_seq_len = max_seq_len
+        self.min_seq_len = min_seq_len
+        self._precompute_samples(corpus_ids)
+
+    def _precompute_samples(self, corpus_ids: list):
+        inputs, targets = [], []
+
+        for doc in corpus_ids:
+            if len(doc) < self.min_seq_len:
+                continue
+
+            # sliding window
+            for i in range(len(doc) - self.max_seq_len):
+                x = doc[i : i+self.max_seq_len]
+                y = doc[i+1 : i+1+self.max_seq_len]
+
+                inputs.append(x)
+                targets.append(y)
+        
+        self.inputs = torch.tensor(inputs, dtype=torch.long)
+        self.targets = torch.tensor(targets, dtype=torch.long)
+        
+    def __len__(self):
+        return len(self.inputs)
+
+    def __getitem__(self, idx: int) -> tuple:
+        return self.inputs[idx], self.targets[idx]

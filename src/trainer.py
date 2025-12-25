@@ -97,18 +97,16 @@ def trainer(
                 f"lr: {train_logs['lr'][-1]}, "
                 f"epoch time: {train_logs['epoch_time'][-1]:.2f}s"
             )
-            print(log_msg)
-
-            
-            # lr scheduler
-            if val_ds is not None:
-                scheduler.step(val_loss)
+            print(log_msg)      
     
             # checkpoints
             torch.save(model.state_dict(), os.path.join(paths["models_dir"], f"CausalLSTM_ckpnt_last.pt"))
     
             # track best model
             if val_ds is not None:
+                # lr scheduler
+                scheduler.step(val_loss)
+                
                 if val_loss < best_loss - config["early_stopping_epsilon"]:
                     best_loss = val_loss
                     best_epoch = epoch + 1
