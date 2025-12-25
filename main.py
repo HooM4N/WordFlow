@@ -44,10 +44,7 @@ def train(args):
     ##################
     ## Tokenization ##
     ##################
-    tokenizer = Tokenizer(
-        max_tokens = config["max_vocab_size"],
-        tokenize_method="nltk"
-    )
+    tokenizer = Tokenizer(max_tokens = config["max_vocab_size"])
     tokenizer.build_vocab([train])
     train_ids = tokenizer.encode(train)
     print(f"*** training corpus size: {len(train_ids):,} tokens")
@@ -67,10 +64,13 @@ def train(args):
     ## Instantiate Model ##
     #######################
     if config["use_glove_embeddings"]:
-        print(f"*** loading pretrained GloVe word embeddings ***")
-        glove_embeddings = get_glove_embeddings(paths["glove_embeddings_path"], config["glove_dim"], tokenizer.get_vocab())
-        glove_embeddings = torch.tensor(glove_embeddings, dtype=torch.float32)
-        config["model_params"]["embedding_dim"] = config["glove_dim"]
+        try:
+            print(f"*** loading pretrained GloVe word embeddings ***")
+            glove_embeddings = get_glove_embeddings(paths["glove_embeddings_path"], config["glove_dim"], tokenizer.get_vocab())
+            glove_embeddings = torch.tensor(glove_embeddings, dtype=torch.float32)
+            config["model_params"]["embedding_dim"] = config["glove_dim"]
+        except Exception as e:
+            print(f"*** failed to load glove matrix. initializing with random values... ***")
         
     torch.manual_seed(args.seed)
     model = CausalLSTM(
