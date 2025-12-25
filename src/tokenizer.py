@@ -10,15 +10,17 @@ class Tokenizer():
     =========================================================
     - Frequency-based vocabulary building (up to `max_tokens`).
     - Lowercase normalizer by default, can be overridden by a custom preprocessor.
-    - Regex-based tokenization or NLTK PTB tokenizer.
+    - Whitespace-split tokenization or NLTK PTB tokenizer.
     - Supports special tokens.
     - Supports saving and loading trained tokenizer to JSON files.
     - Consistent API with HuggingFace tokenizers: encode, decode, id_to_token, and token_to_id methods.
     """
     def __init__(
         self, max_tokens: int = 30_000, 
-        unk_token: str ="<unk>", 
-        special_tokens: List[str] = ["<pad>", "<unk>", "<eos>", "<num>", "<year>"],
+        unk_token: str = "<unk>", 
+        special_tokens: List[str] = [
+            "<pad>", "<unk>", "<sos>", "<eos>", "<num>"
+        ],
         tokenize_method: str = "whitespace", 
         lowercase: bool=True, 
         preprocessor: Callable = None
@@ -82,9 +84,9 @@ class Tokenizer():
         assert isinstance(text, str)
         text = self.normalizer(text)
         
-        # regex-based tokenization
+        # whitespace split tokenization
         if self.tokenize_method == "whitespace":
-            return re.findall(r"<[^<>]+>|[A-Za-z]+(?:'[A-Za-z]+)*|[^\w\s<>]", text)
+            return text.split()
         
         # nltk penn tree bank tokenization
         elif self.tokenize_method == "nltk":

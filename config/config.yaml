@@ -1,26 +1,26 @@
-batch_size: 128
+batch_size: 64
 early_stopping_epsilon: 0.0003
 early_stopping_patience: 3
 enable_mixed_precision: true
 use_glove_embeddings: false
 glove_dim: 200
-grad_clip_norm: 0.5
+grad_clip_norm: 0.25
 lr_scheduler_params:
-  factor: 0.5
-  patience: 2
+  factor: 0.25
+  patience: 1
   threshold: 0.002
 model_params:
-  emb_dropout_p: 0.2
-  embedding_dim: 400
+  emb_dropout_p: 0.15
+  embedding_dim: 256
   freeze_pretrained_embeddings: true
-  hidden_dim: 768
-  lstm_dropout_p: 0.3
+  hidden_dim: 400
+  lstm_dropout_p: 0.2
   num_layers: 2
-  out_dropout_p: 0.5
+  out_dropout_p: 0.35
   proj_nonlinearity: false
-n_epochs: 40
+n_epochs: 70
 optimizer_params:
   lr: 0.002
   weight_decay: 2.0e-05
-seq_len: 64
-max_vocab_size: 30000
+seq_len: 20
+max_vocab_size: 16000

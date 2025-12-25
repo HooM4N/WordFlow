@@ -1,5 +1,4 @@
 import json, os, math
-from collections import deque
 from datetime import datetime
 from tqdm import tqdm
 from typing import Callable, Dict
@@ -21,9 +20,9 @@ def trainer(
     scheduler: torch.optim.lr_scheduler.ReduceLROnPlateau,
     detach_hidden: Callable, 
     train_ds: TruncatedBPTTDataset,
-    val_ds: TruncatedBPTTDataset,
     loss_fn: Callable,
-    tokenizer: Tokenizer
+    tokenizer: Tokenizer,
+    val_ds: TruncatedBPTTDataset = None,
 ) -> torch.nn.Module:
     """
     ===========================================================
@@ -76,43 +75,53 @@ def trainer(
     
             # logger
             train_logs["train_loss"].append(total_loss / len(train_ds))
-            val_loss = evaluate(
-                model, val_ds, loss_fn, device, config, detach_hidden
-            )
-            train_logs["val_loss"].append(val_loss)
-            train_logs["val_metric"].append(math.exp(val_loss))
+            if val_ds is not None:
+                val_loss = evaluate(
+                    model, val_ds, loss_fn, device, config, detach_hidden
+                )
+                train_logs["val_loss"].append(val_loss)
+                train_logs["val_metric"].append(math.exp(val_loss))
             train_logs["lr"].append(optimizer.param_groups[0]['lr'])
             train_logs["epoch_time"].append((datetime.now() - epoch_start).total_seconds())
     
-            print( 
-                f"\r Epoch {epoch + 1}/{config['n_epochs']}, " 
-                f"train loss: {train_logs['train_loss'][-1]:.4f}, " 
-                f"val loss: {train_logs['val_loss'][-1]:.4f}, " 
-                f"val perplexity: {train_logs['val_metric'][-1]:.4f}, " 
-                f"lr: {train_logs['lr'][-1]}, " 
+            log_msg = (
+                f"\r Epoch {epoch + 1}/{config['n_epochs']}, "
+                f"train loss: {train_logs['train_loss'][-1]:.4f}, "
+            )
+            if val_ds is not None:
+                log_msg += (
+                    f"val loss: {train_logs['val_loss'][-1]:.4f}, "
+                    f"val perplexity: {train_logs['val_metric'][-1]:.4f}, "
+                )
+            log_msg += (
+                f"lr: {train_logs['lr'][-1]}, "
                 f"epoch time: {train_logs['epoch_time'][-1]:.2f}s"
             )
+            print(log_msg)
+
             
             # lr scheduler
-            scheduler.step(val_loss)
+            if val_ds is not None:
+                scheduler.step(val_loss)
     
             # checkpoints
             torch.save(model.state_dict(), os.path.join(paths["models_dir"], f"CausalLSTM_ckpnt_last.pt"))
     
             # track best model
-            if val_loss < best_loss - config["early_stopping_epsilon"]:
-                best_loss = val_loss
-                best_epoch = epoch + 1
-                best_ckpnt_path = os.path.join(paths["models_dir"], f"CausalLSTM_ckpnt_best.pt")
-                torch.save(model.state_dict(), best_ckpnt_path)
-                es_counter = 0
-            else:
-                es_counter += 1
-    
-            # early stopping
-            if es_counter >= config["early_stopping_patience"]:
-                print(f"*** Early Stopping triggered at epoch: {epoch+1} ***")
-                break
+            if val_ds is not None:
+                if val_loss < best_loss - config["early_stopping_epsilon"]:
+                    best_loss = val_loss
+                    best_epoch = epoch + 1
+                    best_ckpnt_path = os.path.join(paths["models_dir"], f"CausalLSTM_ckpnt_best.pt")
+                    torch.save(model.state_dict(), best_ckpnt_path)
+                    es_counter = 0
+                else:
+                    es_counter += 1
+        
+                # early stopping
+                if es_counter >= config["early_stopping_patience"]:
+                    print(f"*** Early Stopping triggered at epoch: {epoch+1} ***")
+                    break
                 
     except KeyboardInterrupt:
         print("\n*** Training interrupted by user ***")
@@ -128,7 +137,7 @@ def trainer(
         # save artifacts
         run_dir = os.path.join(paths["models_dir"], run_name)
         os.makedirs(run_dir, exist_ok=True)
-        torch.save(model.state_dict(), os.path.join(run_dir, f"CausalLSTM_ckpnt_{epoch+1}.pt"))
+        torch.save(model.state_dict(), os.path.join(run_dir, "CausalLSTM_ckpnt.pt"))
         write_config(config, os.path.join(run_dir, f"config.yaml"))
         write_config(paths, os.path.join(run_dir, f"paths.yaml"))
         with open(os.path.join(run_dir, f"training_logs.json"), "w") as f:

@@ -31,23 +31,36 @@ def train(args):
     ###############
     ## Load Data ##
     ###############
-    train, val = get_data(paths["data_name"], paths["data_dir"])
+    splits = get_data(paths["data_name"], paths["data_dir"])
+    if isinstance(splits, tuple):
+        train, val = splits
+    elif isinstance(splits, str):
+        train, val = splits, None
+    else:
+        raise ValueError("*** get_data must return either (train, val) splits or a single train corpus, both as strings ***")
+
     print(f"*** dataset {paths["data_name"]} loaded ***")
     
     ##################
     ## Tokenization ##
     ##################
-    tokenizer = Tokenizer(tokenize_method="nltk")
+    tokenizer = Tokenizer(
+        max_tokens = config["max_vocab_size"],
+        tokenize_method="nltk"
+    )
     tokenizer.build_vocab([train])
     train_ids = tokenizer.encode(train)
-    val_ids = tokenizer.encode(val)
-    print(f"*** training corpus size: {len(train_ids):,} tokens | validation: {len(val_ids):,} tokens ***")
+    print(f"*** training corpus size: {len(train_ids):,} tokens")
+    if val is not None:
+        val_ids = tokenizer.encode(val)
+        print(f"*** validation corpus size: {len(val_ids):,} tokens")
     
     #####################
     ## Prepare Dataset ##
     #####################
     train_ds = TruncatedBPTTDataset(train_ids, config["batch_size"], config["seq_len"])
-    val_ds = TruncatedBPTTDataset(val_ids, config["batch_size"], config["seq_len"])
+    if val is not None:
+        val_ds = TruncatedBPTTDataset(val_ids, config["batch_size"], config["seq_len"])
     train_ds.get_info()
     
     #######################
@@ -55,12 +68,9 @@ def train(args):
     #######################
     if config["use_glove_embeddings"]:
         print(f"*** loading pretrained GloVe word embeddings ***")
-        try:
-            glove_embeddings = get_glove_embeddings(paths["glove_embeddings_path"], config["glove_dim"], tokenizer.get_vocab())
-            glove_embeddings = torch.tensor(glove_embeddings, dtype=torch.float32)
-            config["model_params"]["embedding_dim"] = config["glove_dim"]
-        except Exception as e:
-            print(f"*** failed to load glove embeddings, continuing with random init matrix... : {e} ***")
+        glove_embeddings = get_glove_embeddings(paths["glove_embeddings_path"], config["glove_dim"], tokenizer.get_vocab())
+        glove_embeddings = torch.tensor(glove_embeddings, dtype=torch.float32)
+        config["model_params"]["embedding_dim"] = config["glove_dim"]
         
     torch.manual_seed(args.seed)
     model = CausalLSTM(
@@ -80,7 +90,9 @@ def train(args):
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, **config["lr_scheduler_params"])
     
     model = trainer(
-        model, optimizer, config, paths, device, scheduler, detach_hidden, train_ds, val_ds, loss_fn, tokenizer
+        model, optimizer, config, paths, device, scheduler,
+        detach_hidden, train_ds, loss_fn, tokenizer,
+        val_ds = val_ds if val else None
     )
 
 if __name__ == "__main__":
