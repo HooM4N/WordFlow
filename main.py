@@ -55,9 +55,12 @@ def train(args):
     #######################
     if config["use_glove_embeddings"]:
         print(f"*** loading pretrained GloVe word embeddings ***")
-        glove_embeddings = get_glove_embeddings(paths["glove_embeddings_path"], config["glove_dim"], tokenizer.get_vocab())
-        glove_embeddings = torch.tensor(glove_embeddings, dtype=torch.float32)
-        config["model_params"]["embedding_dim"] = config["glove_dim"]
+        try:
+            glove_embeddings = get_glove_embeddings(paths["glove_embeddings_path"], config["glove_dim"], tokenizer.get_vocab())
+            glove_embeddings = torch.tensor(glove_embeddings, dtype=torch.float32)
+            config["model_params"]["embedding_dim"] = config["glove_dim"]
+        except Exception as e:
+            print(f"*** failed to load glove embeddings, continuing with random init matrix... : {e} ***")
         
     torch.manual_seed(args.seed)
     model = CausalLSTM(
