@@ -1,6 +1,6 @@
 config_path: config/config.yaml
-data_name: science_of_getting_rich
-data_dir: data/
+train_data_path: data/science_of_getting_rich.txt
+val_data_path: null
 models_dir: models/
 checkpoint_path: null
 glove_embeddings_path: /mnt/d/ML-Files/PreTrained-Models/Embeddings/wiki_giga_2024_200_MFT20_vectors_seed_2024_alpha_0.75_eta_0.05_combined.txt

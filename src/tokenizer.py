@@ -1,7 +1,8 @@
-import re, os, json
+import os
+import re
+import json
 from typing import Iterable, Callable, List
 from collections import Counter
-from nltk import word_tokenize as nltk_word_tokenize
 
 class Tokenizer():
     """
@@ -10,7 +11,7 @@ class Tokenizer():
     =========================================================
     - Frequency-based vocabulary building (up to `max_tokens`).
     - Lowercase normalizer by default, can be overridden by a custom preprocessor.
-    - Whitespace-split tokenization or NLTK PTB tokenizer.
+    - Whitespace-split tokenization.
     - Supports special tokens.
     - Supports saving and loading trained tokenizer to JSON files.
     - Consistent API with HuggingFace tokenizers: encode, decode, id_to_token, and token_to_id methods.
@@ -18,25 +19,18 @@ class Tokenizer():
     def __init__(
         self, max_tokens: int = 30_000, 
         unk_token: str = "<unk>", 
-        special_tokens: List[str] = [
-            "<pad>", "<unk>", "<sos>", "<eos>", "<num>"
-        ],
-        tokenize_method: str = "whitespace", 
-        lowercase: bool=True, 
+        special_tokens: list[str] = ["<pad>", "<unk>", "<bos>", "<eos>", "<num>"], 
+        lowercase: bool = True, 
         preprocessor: Callable = None
     ):
-        assert tokenize_method in ["whitespace", "nltk"]
         assert unk_token in special_tokens
         if preprocessor is not None:
             assert callable(preprocessor)
-        if tokenize_method == "nltk":
-            self._ensure_nltk_data()
 
         self.word2idx = {}
         self.idx2word = []
         self.max_tokens = max_tokens
         self.unk_token = unk_token
-        self.tokenize_method = tokenize_method
         self.special_tokens = special_tokens
         self.preprocessor = preprocessor
         self.lowercase = lowercase
@@ -52,20 +46,6 @@ class Tokenizer():
         if self.special_tokens is not None:
             for token in self.special_tokens:
                 self._add_token(token)
-
-    def _ensure_nltk_data(self):
-        import nltk
-        for resource in [
-            #"punkt", 
-            "punkt_tab",
-        ]:
-            try:
-                nltk.data.find(f"tokenizers/{resource}")
-            except LookupError:
-                try:
-                    nltk.download(resource)
-                except Exception as e:
-                    print(f"*** failed to download {resource}: {e} ***")
 
     def get_vocab(self) -> list:
         return self.idx2word
@@ -83,25 +63,7 @@ class Tokenizer():
     def tokenize(self, text:str) -> list[str]:
         assert isinstance(text, str)
         text = self.normalizer(text)
-        
-        # whitespace split tokenization
-        if self.tokenize_method == "whitespace":
-            return text.split()
-        
-        # nltk penn tree bank tokenization
-        elif self.tokenize_method == "nltk":
-            specials = re.findall(r"<[^<>]+>", text)
-            if specials:
-                placeholder_map = {f"__SPECIAL{i}__": s for i, s in enumerate(specials)}
-                pattern = re.compile("|".join(re.escape(s) for s in specials))
-                text = pattern.sub(lambda m: f"__SPECIAL{specials.index(m.group(0))}__", text)
-        
-            tokens = [t for t in nltk_word_tokenize(text) if t not in {"``", "''"}]
-            if specials:
-                tokens = [placeholder_map.get(t, t) for t in tokens]
-        
-            return tokens
-
+        return text.split()
 
     def _build_counter(self, iterator: Iterable[str]) -> Counter:
         counter = Counter()

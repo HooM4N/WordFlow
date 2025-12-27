@@ -13,11 +13,11 @@ class TruncatedBPTTDataset(Dataset):
     """
     def __init__(
         self, 
-        corpus_tokens_ids: list, 
+        corpus_ids: list, 
         batch_size: int =256, 
         seq_len: int = 128
     ):
-        full_seq = torch.tensor(corpus_tokens_ids, dtype=torch.long)
+        full_seq = torch.tensor(corpus_ids, dtype=torch.long)
         # trim to multiple of batch_size
         stream_len = full_seq.size(0) // batch_size
         full_seq = full_seq[:stream_len * batch_size]
@@ -53,11 +53,11 @@ class StatelessLSTMDataset(Dataset):
     def __init__(
         self, 
         corpus_ids: list, 
-        max_seq_len: int = 32, 
+        seq_len: int = 32, 
         min_seq_len: int = 20,
     ):
 
-        self.max_seq_len = max_seq_len
+        self.seq_len = seq_len
         self.min_seq_len = min_seq_len
         self._precompute_samples(corpus_ids)
 
@@ -69,16 +69,16 @@ class StatelessLSTMDataset(Dataset):
                 continue
 
             # sliding window
-            for i in range(len(doc) - self.max_seq_len):
-                x = doc[i : i+self.max_seq_len]
-                y = doc[i+1 : i+1+self.max_seq_len]
+            for i in range(len(doc) - self.seq_len):
+                x = doc[i : i+self.seq_len]
+                y = doc[i+1 : i+1+self.seq_len]
 
                 inputs.append(x)
                 targets.append(y)
-        
+                
         self.inputs = torch.tensor(inputs, dtype=torch.long)
         self.targets = torch.tensor(targets, dtype=torch.long)
-        
+            
     def __len__(self):
         return len(self.inputs)
 

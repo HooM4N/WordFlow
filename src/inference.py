@@ -1,5 +1,4 @@
 import torch
-from typing import Dict
 from .tokenizer import Tokenizer
 from .model import CausalLSTM
 from .preprocess import text_cleaner
@@ -8,7 +7,7 @@ from .preprocess import text_cleaner
 def generate(
     model: CausalLSTM, 
     tokenizer: Tokenizer, 
-    config: Dict, 
+    config: dict, 
     device: torch.device, 
     init_word: str = None, 
     max_new_tokens: str = 32, 
@@ -51,7 +50,7 @@ def generate(
 def predict_next_word(
     model: CausalLSTM, 
     tokenizer: Tokenizer, 
-    config: Dict, 
+    config: dict, 
     device: torch.device, 
     context: str = "it is", 
     top_k: int = 5

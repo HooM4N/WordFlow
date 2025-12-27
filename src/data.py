@@ -1,68 +1,73 @@
 import os
-from typing import Tuple
-from datasets import load_dataset
-from .preprocess import is_valid_row, text_cleaner
+import random
+from collections import Counter
+from tqdm import tqdm
+from .preprocess import text_cleaner, replace_entities
 
-def get_data(data_name: str, data_dir: str) -> Tuple[str, str]:
+def get_data(
+    data_path: str, 
+    min_token_thresh: int = 15, 
+    chunk_separator: str = "\n\n",
+    do_replace_entities: bool = False
+) -> list[str]:
     """
-    =================================================================
-    == Load dataset from given name (GiTHUB.com/HooM4N/CausalLSTM) ==
-    =================================================================
-    Available datasets names:
-        - "wikitext": preprocessed version of WikiText-2
-        - "sherlock_holmes": concatanation of four Sir Arthur Conan Doyle works:
-            * adventures_of_sherlock_holmes
-            * hound_of_baskervill
-            * memories_of_sherlock_holmes, 
-            * return_of_sherlock_holmes
-        - "science_of_getting_rich"
+    =============================================================
+    == Read & Prepare Text Data (GiTHUB.com/HooM4N/CausalLSTM) ==
+    =============================================================
     """
-    assert data_name in ["wikitext", "sherlock_holmes", "science_of_getting_rich"]
-    if data_name == "wikitext":
-        return get_wikitext(data_dir)
-    elif data_name == "sherlock_holmes":
-        return get_sherlock_holmes(data_dir)
-    elif data_name == "science_of_getting_rich":
-        return get_science_of_getting_rich(data_dir)
-        
-def get_wikitext(dataset_name_or_dir:str) -> Tuple[str, str, str]:
-    """
-    =====================================================
-    == Returns filtered & preprocessed WikiText splits ==
-    =====================================================
-    """
-    def clean_wt(row):
-        return {"clean_text": text_cleaner(row["text"])}
-        
-    dataset = load_dataset(dataset_name_or_dir)
-    dataset = dataset.filter(is_valid_row, load_from_cache_file=False)
-    dataset = dataset.map(clean_wt, load_from_cache_file=False)
+    assert os.path.exists(data_path), "data file does not exists!"
+    assert data_path.endswith(".txt"), "expects txt file as data_path"
     
-    train_corpus = " ".join(f" {t} <eos> " for t in dataset["train"]["clean_text"])
-    val_corpus = " ".join(f" {t} <eos> " for t in dataset["validation"]["clean_text"])
-    return train_corpus, val_corpus
-
-def get_sherlock_holmes(data_dir:str) -> Tuple[str, str]:
+    with open(data_path, "r", encoding="utf-8") as f:
+        raw_chunks = f.read().split(chunk_separator)
+        
+    processed = []
+    for doc in tqdm(raw_chunks, desc="Processing Data"):
+        if do_replace_entities:
+            doc = replace_entities(doc)
+        doc = text_cleaner(doc)
+        if len(doc.split()) >= min_token_thresh:
+            processed.append(f" <bos> {doc} <eos> ")
+    print(f"*** file: \"{os.path.basename(data_path)}\" loaded ***")
+    return processed
+        
+def train_val_split(
+    data: list[str], 
+    val_ratio: float = 0.15, 
+    shuffle: bool = False,
+    seed: int = 42
+) -> tuple[list[str], list[str]]:
     """
-    ===============================================
-    == Load & preprocess Sherlock Holmes dataset ==
-    ===============================================
+    =====================================================================
+    == Train-Val Data Splitting Utility (GiTHUB.com/HooM4N/CausalLSTM) ==
+    =====================================================================
     """
-    with open(os.path.join(data_dir, "train.txt"), "r") as f:
-        train = f.read()
+    if shuffle:
+        random.seed(seed)
+        random.shuffle(data)
+        
+    up = round(len(data) * (1-val_ratio))
+    return data[:up], data[up:]
 
-    with open(os.path.join(data_dir, "val.txt"), "r") as f:
-        val = f.read()
 
-    return text_cleaner(train), text_cleaner(val)
-
-def get_science_of_getting_rich(data_dir:str) -> str:
+def summarize_data(data: list[str]) -> None:
     """
-    =======================================================
-    == Load & preprocess Science of Getting Rich dataset ==
-    =======================================================
+    ===========================================================
+    == Summerize Tokens Count (GiTHUB.com/HooM4N/CausalLSTM) ==
+    ===========================================================
     """
-    with open(os.path.join(data_dir, "science_of_getting_rich.txt"), "r", encoding="utf-8") as f:
-        corpus = f.read()
-    sentences = [text_cleaner(s) for s in corpus.split("\n\n")]
-    return " ".join(f" {s} <eos> " for s in sentences if len(s.split()) >= 15)
+    token_counter = Counter()
+
+    for chunk in data:
+        tokens = chunk.split()
+        token_counter.update(tokens)
+
+    print(
+        f"*** | {sum(token_counter.values()):,} tokens | "
+        f"{len(token_counter):,} unique tokens | "
+        f"{len(data)} chunks | ***"
+    )
+
+def flatten(xss: list[list[str]]) -> list[str]:
+    """ flattens nested lists """
+    return [x for xs in xss for x in xs]

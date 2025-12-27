@@ -1,12 +1,12 @@
-import torch
-import os, yaml
-from typing import Dict
+import os
+import yaml
+import torch 
 
-def read_config(config_path: str) -> Dict:
+def read_config(config_path: str) -> dict:
     """
-    ===========================================
-    == Reads a YAML file (GitHUB.com/HooM4N) ==
-    ===========================================
+    ==========================================
+    == Read YAML Config (GitHUB.com/HooM4N) ==
+    ==========================================
     """
     try:
         with open(config_path, "r", encoding="utf-8") as f:
@@ -16,11 +16,11 @@ def read_config(config_path: str) -> Dict:
         print(f"** Error reading config file: {e} **") 
     return None
 
-def write_config(config: Dict, config_path: str):
+def write_config(config: dict, config_path: str):
     """
-    ==========================================================
-    == Writes a dictionary to YAML file (GitHUB.com/HooM4N) ==
-    ==========================================================
+    ===============================================
+    == Writes to YAML Config (GitHUB.com/HooM4N) ==
+    ===============================================
     """
     os.makedirs(os.path.dirname(config_path), exist_ok=True)
     try:
@@ -31,9 +31,9 @@ def write_config(config: Dict, config_path: str):
 
 def resolve_device(use_accelerator: bool=True) -> torch.device:
     """
-    =================================================================
-    == Detects & returns available accelerator (GitHUB.com/HooM4N) ==
-    =================================================================
+    ==========================================================
+    == Resolve Available PyTorch Device (GitHUB.com/HooM4N) ==
+    ==========================================================
     """
     if use_accelerator and torch.accelerator.is_available():
         device = torch.accelerator.current_accelerator()
@@ -42,11 +42,11 @@ def resolve_device(use_accelerator: bool=True) -> torch.device:
     print(f"*** Using device: {device.type} ***")
     return device
 
-def ensure_dirs(paths:dict):
+def ensure_dirs(paths: dict):
     """
-    ============================================
-    == Ensures dirs exist (GitHUB.com/HooM4N) ==
-    ============================================
+    ================================================================
+    == Ensures Existence of Given Directories (GitHUB.com/HooM4N) ==
+    ================================================================
     """
     for k,p in paths.items():
         if p is not None and k.endswith("_dir"):
@@ -55,9 +55,9 @@ def ensure_dirs(paths:dict):
 
 def model_summary(model: torch.nn.Module, width: int = 80):
     """
-    =============================================================
-    == Displays Summary of Model Paramters (GiTHUB.com/HooM4N) ==
-    =============================================================
+    =========================================================
+    == Print Model's Paramters Summary (GiTHUB.com/HooM4N) ==
+    =========================================================
     """
     print("="*width)
     print(f"Parameter Count Summary for {model.__class__.__name__}".center(width))

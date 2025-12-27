@@ -1,4 +1,3 @@
-from typing import Tuple
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -35,7 +34,10 @@ class CausalLSTM(nn.Module):
         if pretrained_embedding_matrix is not None:
             assert isinstance(pretrained_embedding_matrix, torch.Tensor)
             assert pretrained_embedding_matrix.size() == (vocab_size, embedding_dim)
-            self.embedding = nn.Embedding.from_pretrained(pretrained_embedding_matrix, freeze=freeze_pretrained_embeddings)
+            self.embedding = nn.Embedding.from_pretrained(
+                pretrained_embedding_matrix, 
+                freeze = freeze_pretrained_embeddings
+            )
         else:
             self.embedding = nn.Embedding(vocab_size, embedding_dim)
             
@@ -63,15 +65,15 @@ class CausalLSTM(nn.Module):
         ## TODO: should i keep head's bias trainable?
         nn.init.zeros_(self.fc.bias)
 
-    def init_hidden(self, batch_size: int) -> Tuple[torch.Tensor, torch.Tensor]:
+    def init_hidden(self, batch_size: int) -> tuple[torch.Tensor, torch.Tensor]:
         w = next(self.parameters())
         h_0 = w.new_zeros((self.num_layers, batch_size, self.hidden_dim))
         c_0 = w.new_zeros((self.num_layers, batch_size, self.hidden_dim))
         return (h_0, c_0)
 
     def forward(
-        self, x: torch.Tensor, hidden: Tuple[torch.Tensor, torch.Tensor]
-    ) -> Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
+        self, x: torch.Tensor, hidden: tuple[torch.Tensor, torch.Tensor] = None
+    ) -> tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor]]:
         
         x = self.embedding(x) # (N, L, E)
         x = self.emb_dropout(x)
@@ -84,7 +86,7 @@ class CausalLSTM(nn.Module):
             x = self.out_dropout(x)
         return self.fc(x).permute(0, 2, 1), hidden # (N, vocab_size, L), ((num_layers, N, H), (num_layers, N, H))
 
-def detach_hidden(hidden: Tuple[torch.Tensor, torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor]:
+def detach_hidden(hidden: tuple[torch.Tensor, torch.Tensor]) -> tuple[torch.Tensor, torch.Tensor]:
     """Detach hidden states from the current graph."""
     if isinstance(hidden, torch.Tensor):
         return hidden.detach()
