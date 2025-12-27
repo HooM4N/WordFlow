@@ -8,7 +8,8 @@ def get_data(
     data_path: str, 
     min_token_thresh: int = 15, 
     chunk_separator: str = "\n\n",
-    do_replace_entities: bool = False
+    do_replace_entities: bool = False,
+    entities_to_replace: list[str] = ["PERSON","NORP","LANGUAGE","GPE"]
 ) -> list[str]:
     """
     =============================================================
@@ -24,11 +25,12 @@ def get_data(
     processed = []
     for doc in tqdm(raw_chunks, desc="Processing Data"):
         if do_replace_entities:
-            doc = replace_entities(doc)
+            doc = replace_entities(doc, labels_to_replace=entities_to_replace)
         doc = text_cleaner(doc)
         if len(doc.split()) >= min_token_thresh:
             processed.append(f" <bos> {doc} <eos> ")
     print(f"*** file: \"{os.path.basename(data_path)}\" loaded ***")
+    summarize_data(processed)
     return processed
         
 def train_val_split(

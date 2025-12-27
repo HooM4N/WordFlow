@@ -15,6 +15,7 @@ def text_cleaner(text: str) -> str:
         - Remove parenthesized & bracketed content, normalize punctuations
         - Expand contractions, keep essential punctuations (dot, comma, apastrophese)
         - Seprate punks from words, bucketize numbers
+        - Preserve sepecial tokens with format xxspecialxx<token>xx
     """
     text = text.lower()
     
@@ -32,9 +33,14 @@ def text_cleaner(text: str) -> str:
     replacements = {
         "n't" : " not ", "'s" : " 's ", "'re" : " are ", "'d" : " 'd ",
         "no." : " number", "'ll" : " will ", "'ve" : " have ", "'m" : " am ",
-        "u.s." : " america ", "--" : " , ", "mr." : " ", "cannot" : " can not",
-        "<br /><br />" : "\n", " @,@ " : "", " @.@ " : ""
+        "u.s." : " america ", "--" : " , ", "cannot" : " can not",
+        "<br /><br />" : "\n", " @,@ " : "", " @.@ " : "",
+        "mr." : " xxspecialxxtitlexx ", "mrs." : " xxspecialxxtitlexx ",
+        "ms." : " xxspecialxxtitlexx ", "dr." : " xxspecialxxtitlexx ", 
+        "prof." : " xxspecialxxtitlexx ", "ph.d." : " xxspecialxxtitlexx ",
+        "m.d." : " xxspecialxxtitlexx "
     }
+     
     for old, new in replacements.items(): # expand contractions
         text = text.replace(old, new)
 
@@ -46,17 +52,13 @@ def text_cleaner(text: str) -> str:
     
     def num_bucket(m):
         n = int(m.group())
-        if 0 <= n <= 9:
-            return " <1d_num> "
-        if 10 <= n <= 99:
-            return " <2d_num> "
-        if 100 <= n <= 999:
-            return " <3d_num> "           
         if 1500 <= n <= 2099:
             return " <year> "
         return " <num> "
         
-    text = re.sub(r"\d+", num_bucket, text) # normalize numbers
+    text = re.sub(r"\d+", num_bucket, text) # bucketize numbers
+    text = re.sub(r'xxspecialxx([a-z]+)xx', r'<\1>', text) # replace entities with special tokens
+    text = re.sub(r'(<[^>]+>)(\s+\1)+', r'\1', text) # normalize duplicated special tokens' artifacts
 
     return " ".join(text.split())
 
@@ -81,8 +83,8 @@ def _get_nlp(model_name: str="en_core_web_md"):
     return _nlp
 
 def replace_entities(
-    text: str,
-    labels: list[str] = ["PERSON","NORP","LANGUAGE","GPE"],
+    text: str, 
+    labels_to_replace: list[str] = ["PERSON", "GPE", "NORP", "LANGUAGE", "LOC"]
 ) -> str:
     """
     ==============================================================
@@ -112,7 +114,9 @@ def replace_entities(
     nlp = _get_nlp()
     doc = nlp(text)
     new_text = text
-    for ent in doc.ents:
-        if ent.label_ in labels:
-            new_text = new_text.replace(ent.text, f" <{ent.label_}> ")
+
+    for ent in reversed(doc.ents):
+        if ent.label_ in labels_to_replace:
+            start, end = ent.start_char, ent.end_char
+            new_text = new_text[:start] + f" xxspecialxx{ent.label_.lower()}xx " + new_text[end:]
     return new_text
