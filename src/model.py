@@ -72,7 +72,9 @@ class CausalLSTM(nn.Module):
         return (h_0, c_0)
 
     def forward(
-        self, x: torch.Tensor, hidden: tuple[torch.Tensor, torch.Tensor] = None
+        self, 
+        x: torch.Tensor, 
+        hidden: tuple[torch.Tensor, torch.Tensor] = None
     ) -> tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor]]:
         
         x = self.embedding(x) # (N, L, E)

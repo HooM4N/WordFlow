@@ -7,10 +7,10 @@ from .preprocess import text_cleaner
 def generate(
     model: CausalLSTM, 
     tokenizer: Tokenizer, 
-    config: dict, 
+    config: dict[str, int | float | str], 
     device: torch.device, 
     init_word: str = None, 
-    max_new_tokens: str = 32, 
+    max_new_tokens: int = 32, 
     temperature: float = 0.9, 
     seed: int = None
 ) -> str:
@@ -50,11 +50,11 @@ def generate(
 def predict_next_word(
     model: CausalLSTM, 
     tokenizer: Tokenizer, 
-    config: dict, 
+    config: dict[str, int | float | str], 
     device: torch.device, 
     context: str = "it is", 
     top_k: int = 5
-) -> dict:
+) -> dict[str, float]:
     """
     ======================================================================
     == Next Word Probability Prediction (GiTHUB.com/HoomM4N/CausalLSTM) ==

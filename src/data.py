@@ -8,27 +8,52 @@ def get_data(
     data_path: str, 
     min_token_thresh: int = 15, 
     chunk_separator: str = "\n\n",
-    do_replace_entities: bool = False,
-    entities_to_replace: list[str] = ["PERSON","NORP","LANGUAGE","GPE"]
+    preprocess: bool = True,
+    entity_replacement: bool = False,
+    entities_to_replace: list[str] = ["PERSON", "GPE", "NORP", "LANGUAGE", "LOC"]
 ) -> list[str]:
     """
     =============================================================
     == Read & Prepare Text Data (GiTHUB.com/HooM4N/CausalLSTM) ==
     =============================================================
+    Args:
+        - data_path (str): 
+            Path to the input `.txt` file.
+        
+        - min_token_thresh (int): 
+            Minimum token threshold; chunks with fewer tokens are discarded.
+        
+        - chunk_separator (str): 
+            String used to split the text file into chunks.
+        
+        - preprocess (bool): 
+            Whether to apply the `text_cleaner` function to each chunk.
+        
+        - entity_replacement (bool):
+            Whether to replace named entities using spaCy 
+            (default model: `en_core_web_sm`).
+        
+        - entities_to_replace (list): 
+            List of entity types to replace. 
+            See the `replace_entities` docstring for the full list of supported entities.
     """
     assert os.path.exists(data_path), "data file does not exists!"
-    assert data_path.endswith(".txt"), "expects txt file as data_path"
+    assert data_path.endswith(".txt"), "expects data as .txt file"
     
     with open(data_path, "r", encoding="utf-8") as f:
         raw_chunks = f.read().split(chunk_separator)
         
     processed = []
     for doc in tqdm(raw_chunks, desc="Processing Data"):
-        if do_replace_entities:
-            doc = replace_entities(doc, labels_to_replace=entities_to_replace)
-        doc = text_cleaner(doc)
-        if len(doc.split()) >= min_token_thresh:
+        if entity_replacement:
+            doc = replace_entities(doc, entities_to_replace)
+        if preprocess:
+            doc = text_cleaner(doc)
+            if len(doc.split()) >= min_token_thresh:
+                processed.append(f" <bos> {doc} <eos> ")
+        else:
             processed.append(f" <bos> {doc} <eos> ")
+            
     print(f"*** file: \"{os.path.basename(data_path)}\" loaded ***")
     summarize_data(processed)
     return processed
@@ -67,7 +92,7 @@ def summarize_data(data: list[str]) -> None:
     print(
         f"*** | {sum(token_counter.values()):,} tokens | "
         f"{len(token_counter):,} unique tokens | "
-        f"{len(data)} chunks | ***"
+        f"{len(data):,} chunks | ***"
     )
 
 def flatten(xss: list[list[str]]) -> list[str]:

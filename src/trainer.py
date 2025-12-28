@@ -18,8 +18,7 @@ from .config import write_config
 def trainer(
     model: torch.nn.Module,
     optimizer: torch.optim.Optimizer,
-    config: dict,
-    paths: dict,
+    config: dict[str, int | float | str],
     device: torch.device, 
     scheduler: torch.optim.lr_scheduler.ReduceLROnPlateau,
     detach_hidden: Callable, 
@@ -41,9 +40,9 @@ def trainer(
         - Model Checkpoint
         - Resume Training from Checkpoint
     """
-    if paths["checkpoint_path"] is not None:
+    if config["checkpoint_path"] is not None:
         model.load_state_dict(
-            torch.load(paths["checkpoint_path"], map_location=device, weights_only=True)
+            torch.load(config["checkpoint_path"], map_location=device, weights_only=True)
             )
         print(f"*** Continue training from checkpoint ***")
         
@@ -60,18 +59,18 @@ def trainer(
             epoch_start = datetime.now()
             model.train()
             total_loss = 0.0
-            hidden = model.init_hidden(config["batch_size"])
+            hidden = model.init_hidden(config["batch_size"]) if config["training_mode"] == "statefull" else None
 
             for X,Y in tqdm(train_loader, desc=f"Epoch {epoch+1}/{config["n_epochs"]}"):
                 X, Y = X.to(device), Y.to(device)
                 optimizer.zero_grad(set_to_none=True)
-                hidden = detach_hidden(hidden)
+                hidden = detach_hidden(hidden) if config["training_mode"] == "statefull" else None
                 with torch.autocast(
                     device_type=device.type, dtype=torch.float16, enabled = config["enable_mixed_precision"]
                 ):
                     logits, hidden = model(
                         X,
-                        hidden if config["training_mode"] == "statefull" else None
+                        #hidden if config["training_mode"] == "statefull" else None
                     )
                     loss = loss_fn(logits, Y)
                 total_loss += loss.item()
@@ -109,9 +108,15 @@ def trainer(
     
             # checkpoints
             torch.save(
-                model.state_dict(), os.path.join(paths["models_dir"], f"CausalLSTM_ckpnt_last.pt")
+                model.state_dict(), os.path.join(config["models_dir"], f"CausalLSTM_ckpnt_last.pt")
             )
-    
+            with open(os.path.join(config["models_dir"], "checkpoint_info.json"), "w") as f:
+                json.dump({
+                    "run_name": run_name,
+                    "epoch": epoch+1,
+                    "train_loss": train_logs['train_loss'][-1],
+                    "val_loss": train_logs['val_loss'][-1] if val_loader else None,
+                }, f)
             
             if val_loader is not None:
                 # lr scheduler
@@ -121,7 +126,7 @@ def trainer(
                 if val_loss < best_loss - config["early_stopping_epsilon"]:
                     best_loss = val_loss
                     best_epoch = epoch + 1
-                    best_ckpnt_path = os.path.join(paths["models_dir"], f"CausalLSTM_ckpnt_best.pt")
+                    best_ckpnt_path = os.path.join(config["models_dir"], f"CausalLSTM_ckpnt_best.pt")
                     torch.save(model.state_dict(), best_ckpnt_path)
                     es_counter = 0
                 else:
@@ -144,11 +149,10 @@ def trainer(
             print(f"*** Restoring best model from epoch: {best_epoch} ***")
     
         # save artifacts
-        run_dir = os.path.join(paths["models_dir"], run_name)
+        run_dir = os.path.join(config["models_dir"], run_name)
         os.makedirs(run_dir, exist_ok=True)
         torch.save(model.state_dict(), os.path.join(run_dir, "CausalLSTM_ckpnt.pt"))
         write_config(config, os.path.join(run_dir, f"config.yaml"))
-        write_config(paths, os.path.join(run_dir, f"paths.yaml"))
         with open(os.path.join(run_dir, f"training_logs.json"), "w") as f:
             json.dump(train_logs, f, indent=2)
         tokenizer.save(os.path.join(run_dir, "tokenizer.json"))
@@ -166,7 +170,7 @@ def evaluate(
     eval_loader: torch.utils.data.DataLoader, 
     loss_fn: Callable, 
     device: torch.device, 
-    config: dict, 
+    config:  dict[str, int | float | str], 
     detach_hidden: Callable,
     disable_progress_bar: bool = True
 ) -> float:

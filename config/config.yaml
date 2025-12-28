@@ -1,20 +1,30 @@
+#=====================#
+#     PATHS SETUP     #
+#=====================#
+train_data_path: data/science_of_getting_rich.txt
+val_data_path: null
+models_dir: models/
+checkpoint_path: null
+glove_embeddings_path: null
+
 #==========================#
 #     GENERAL SETTINGS     #
 #==========================#
 seed: 42
-training_mode: statefull
+training_mode: stateless
+use_accelerator: true
 
 #=======================#
 #     DATA SETTINGS     #
 #=======================#
-seq_len: 16
+seq_len: 8
 min_seq_len: 20
 max_vocab_size: 16000
 
 get_data_params:
   min_token_thresh: 20
   chunk_separator: "\n\n"
-  do_replace_entities: false
+  entity_replacement: false
 
 val_split_enable: true
 val_split_ratio: 0.15
@@ -23,7 +33,7 @@ val_split_shuffle: false
 #=========================#
 #     TRAINING PARAMS     #
 #=========================#
-n_epochs: 5
+n_epochs: 2
 batch_size: 32
 enable_mixed_precision: true
 

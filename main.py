@@ -1,3 +1,4 @@
+import os
 import argparse
 import torch
 from torch.utils.data import DataLoader
@@ -12,45 +13,47 @@ from src.trainer import trainer
 
 def get_args():
     parser = argparse.ArgumentParser(description="*** CausalLSTM: Word-Level LSTM Language Modeling ***")
-    parser.add_argument("--config_path", type=str, default=None, help="path to config file (yaml)")
-    parser.add_argument("--paths_path", type=str, default="config/paths.yaml", help="path to paths file (yaml)")
-    parser.add_argument("--n_epochs", type=int, default=40, help="number of training epochs")
-    parser.add_argument("--batch_size", type=int, default=128, help="training batch size")
-    parser.add_argument("--use_accelerator", type=bool, default=True, help="use available accelerator or cpu")
-    parser.add_argument("--seed", type=int, default=42, help="random seed")
+    parser.add_argument("--config_path", type=str, default="config/config.yaml",
+                        help="path to config file (yaml)")
+    parser.add_argument("--training_mode", choices=["statefull", "stateless"], default=None,
+                        help="train with 'statefull' (Truncated BPTT) or 'stateless' (overlapping sequence windows)")
+    parser.add_argument("--n_epochs", type=int, default=None,
+                        help="number of training epochs")
+    parser.add_argument("--batch_size", type=int, default=None,
+                        help="training batch size")
+    parser.add_argument("--use_accelerator", type=bool, default=None,
+                        help="use available accelerator or cpu")
+    parser.add_argument("--seed", type=int, default=None,
+                        help="random seed")
     return parser.parse_args()
 
-def train(args):
+def train(config):
     #=======================#
     #     Configuration     #
     #=======================#
-    device = resolve_device(args.use_accelerator)
-    paths = read_config(args.paths_path)
-    ensure_dirs(paths)
-    config = read_config(
-        paths["config_path"] if args.config_path is None else args.config_path
-    )
-    
+    device = resolve_device(config["use_accelerator"])
+    ensure_dirs(config)
+    assert config["training_mode"] in ["statefull", "stateless"], \
+        f"training_mode should be either 'statefull' or 'stateless', got {config['training_mode']!r}"
     #======================#
     #     Prepare Data     #
     #======================#
     train_corpus = get_data(
-        paths["train_data_path"],
+        config["train_data_path"],
         **config["get_data_params"]
     )
-    summarize_data(train_corpus)
     evaluate = False
-        
-    if paths["val_data_path"] is not None:
-        val_corpus = get_data(paths["val_data_path"])
+    
+    if config["val_data_path"] is not None:
+        val_corpus = get_data(config["val_data_path"])
         evaluate = True
     elif config["val_split_enable"]:
         train_corpus, val_corpus = train_val_split(
             train_corpus, 
-                config["val_split_ratio"], 
-                config["val_split_shuffle"],
-                config["seed"]
-            )
+            config["val_split_ratio"], 
+            config["val_split_shuffle"],
+            config["seed"]
+        )
         evaluate = True
         
     #======================#
@@ -90,6 +93,7 @@ def train(args):
         train_ds = StatelessLSTMDataset(
             train_ids, config["seq_len"], config["min_seq_len"]
         )
+        print(f"*** {len(train_ds):,} training samples created ***")
         train_loader = DataLoader(
             train_ds, batch_size=config["batch_size"], shuffle=True, pin_memory = True
         )
@@ -108,7 +112,7 @@ def train(args):
         try:
             print(f"*** loading pretrained GloVe word embeddings ***")
             pretrained_embeddings = get_glove_embeddings(
-                paths["glove_embeddings_path"], config["glove_dim"], tokenizer.get_vocab()
+                config["glove_embeddings_path"], config["glove_dim"], tokenizer.get_vocab()
             )
             pretrained_embeddings = torch.tensor(pretrained_embeddings, dtype=torch.float32)
             config["model_params"]["embedding_dim"] = config["glove_dim"]
@@ -137,11 +141,20 @@ def train(args):
     )
     
     model = trainer(
-        model, optimizer, config, paths, device, scheduler,
+        model, optimizer, config, device, scheduler,
         detach_hidden, train_loader, loss_fn, tokenizer,
         val_loader = val_loader if evaluate else None
     )
-
+    
 if __name__ == "__main__":
+    ## GET CLI ARGS ##
     args = get_args()
-    train(args)
+    ## READ CONFIG FILE ##
+    config = read_config(args.config_path)
+    ## OVERRIDE CONFIG WITH CLI ARGS ##
+    for key in ["training_mode", "n_epochs", "batch_size", "use_accelerator", "seed"]:
+        val = getattr(args, key)
+        if val is not None:
+            config[key] = val
+    ## TRAINING PROCESS ##
+    train(config)

@@ -58,7 +58,7 @@ def text_cleaner(text: str) -> str:
         
     text = re.sub(r"\d+", num_bucket, text) # bucketize numbers
     text = re.sub(r'xxspecialxx([a-z]+)xx', r'<\1>', text) # replace entities with special tokens
-    text = re.sub(r'(<[^>]+>)(\s+\1)+', r'\1', text) # normalize duplicated special tokens' artifacts
+    text = re.sub(r'(<(?:num|year|person|loc)>)(\s+\1)+', r'\1', text) # merge duplicated special tokens
 
     return " ".join(text.split())
 
@@ -84,7 +84,7 @@ def _get_nlp(model_name: str="en_core_web_md"):
 
 def replace_entities(
     text: str, 
-    labels_to_replace: list[str] = ["PERSON", "GPE", "NORP", "LANGUAGE", "LOC"]
+    entities_to_replace: list[str] = ["PERSON", "GPE", "NORP", "LANGUAGE", "LOC"]
 ) -> str:
     """
     ==============================================================
@@ -116,7 +116,7 @@ def replace_entities(
     new_text = text
 
     for ent in reversed(doc.ents):
-        if ent.label_ in labels_to_replace:
+        if ent.label_ in entities_to_replace:
             start, end = ent.start_char, ent.end_char
             new_text = new_text[:start] + f" xxspecialxx{ent.label_.lower()}xx " + new_text[end:]
     return new_text
