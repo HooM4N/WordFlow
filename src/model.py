@@ -76,7 +76,6 @@ class CausalLSTM(nn.Module):
         x: torch.Tensor, 
         hidden: tuple[torch.Tensor, torch.Tensor] = None
     ) -> tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor]]:
-        
         x = self.embedding(x) # (N, L, E)
         x = self.emb_dropout(x)
         x, hidden = self.lstm(x, hidden) # (N, L, H), ((num_layers, N, H), (num_layers, N, H))

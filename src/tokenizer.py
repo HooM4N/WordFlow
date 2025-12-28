@@ -94,19 +94,26 @@ class Tokenizer():
                 print(f"*** tokenizer saved to {save_path} ***")
         except Exception as e:
             print(f"*** error saving tokenizer at {save_path}: {e} ***")
-
-    def load_from_file(self, load_path: str):
-        assert os.path.exists(load_path)
+    
+    @classmethod
+    def load_from_file(cls, load_path: str):
+        assert os.path.exists(load_path), f"File not found: {load_path}"
         try:
             with open(load_path, "r", encoding="utf-8") as f:
-                tokenizer = json.load(f)
-            self.idx2word = tokenizer["vocab"]
-            self.word2idx = {w:i for i,w in enumerate(self.idx2word)}
-            self.unk_token = tokenizer["unk_token"]
-            self.unk_id = self.word2idx[self.unk_token]
-            self.special_tokens = tokenizer["special_tokens"]
+                data = json.load(f)
+
+            # create a new instance
+            tokenizer = cls()
+            tokenizer.idx2word = data["vocab"]
+            tokenizer.word2idx = {w: i for i, w in enumerate(tokenizer.idx2word)}
+            tokenizer.unk_token = data["unk_token"]
+            tokenizer.unk_id = tokenizer.word2idx[tokenizer.unk_token]
+            tokenizer.special_tokens = data["special_tokens"]
+
+            return tokenizer
         except Exception as e:
             print(f"*** error loading tokenizer from {load_path}: {e} ***")
+            return None
 
     def encode(self, text:str) -> list[int]:
         assert isinstance(text, str)

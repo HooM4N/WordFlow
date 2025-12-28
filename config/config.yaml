@@ -17,8 +17,8 @@ use_accelerator: true
 #=======================#
 #     DATA SETTINGS     #
 #=======================#
-seq_len: 8
-min_seq_len: 20
+seq_len: 16
+min_seq_len: 8
 max_vocab_size: 16000
 
 get_data_params:
@@ -33,7 +33,7 @@ val_split_shuffle: false
 #=========================#
 #     TRAINING PARAMS     #
 #=========================#
-n_epochs: 2
+n_epochs: 5
 batch_size: 32
 enable_mixed_precision: true
 
@@ -51,8 +51,8 @@ glove_dim: 200
 #     MODEL PARAMS     #
 #======================#
 model_params:
- embedding_dim: 8
- hidden_dim: 16
+ embedding_dim: 128
+ hidden_dim: 128
  num_layers: 2
  
  emb_dropout_p: 0.1

@@ -59,18 +59,18 @@ def trainer(
             epoch_start = datetime.now()
             model.train()
             total_loss = 0.0
-            hidden = model.init_hidden(config["batch_size"]) if config["training_mode"] == "statefull" else None
+            hidden = model.init_hidden(config["batch_size"])
 
             for X,Y in tqdm(train_loader, desc=f"Epoch {epoch+1}/{config["n_epochs"]}"):
                 X, Y = X.to(device), Y.to(device)
                 optimizer.zero_grad(set_to_none=True)
-                hidden = detach_hidden(hidden) if config["training_mode"] == "statefull" else None
+                hidden = detach_hidden(hidden)
                 with torch.autocast(
                     device_type=device.type, dtype=torch.float16, enabled = config["enable_mixed_precision"]
                 ):
                     logits, hidden = model(
                         X,
-                        #hidden if config["training_mode"] == "statefull" else None
+                        hidden if config["training_mode"] == "statefull" else None
                     )
                     loss = loss_fn(logits, Y)
                 total_loss += loss.item()
@@ -79,6 +79,8 @@ def trainer(
                 nn.utils.clip_grad_norm_(model.parameters(), config["grad_clip_norm"])
                 scaler.step(optimizer)
                 scaler.update()
+                if config["dry_run"]:
+                    break
     
             # logger
             train_logs["train_loss"].append(total_loss / len(train_loader))
@@ -189,6 +191,9 @@ def evaluate(
         with torch.autocast(
             device_type=device.type, dtype=torch.float16, enabled=config["enable_mixed_precision"]
         ):
-            logits, hidden = model(X, hidden)
+            logits, hidden = model(
+                X, 
+                hidden if config["training_mode"] == "statefull" else None
+            )
             total_loss += loss_fn(logits, Y).item()
     return total_loss / len(eval_loader)

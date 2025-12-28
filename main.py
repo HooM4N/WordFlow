@@ -25,6 +25,8 @@ def get_args():
                         help="use available accelerator or cpu")
     parser.add_argument("--seed", type=int, default=None,
                         help="random seed")
+    parser.add_argument("--dry_run", action="store_true",
+                        help="run one training batch for testing")
     return parser.parse_args()
 
 def train(config):
@@ -152,7 +154,7 @@ if __name__ == "__main__":
     ## READ CONFIG FILE ##
     config = read_config(args.config_path)
     ## OVERRIDE CONFIG WITH CLI ARGS ##
-    for key in ["training_mode", "n_epochs", "batch_size", "use_accelerator", "seed"]:
+    for key in ["training_mode", "n_epochs", "batch_size", "use_accelerator", "seed", "dry_run"]:
         val = getattr(args, key)
         if val is not None:
             config[key] = val
