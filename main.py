@@ -26,7 +26,7 @@ def get_args():
     parser.add_argument("--seed", type=int, default=None,
                         help="random seed")
     parser.add_argument("--dry_run", action="store_true",
-                        help="run one training batch for testing")
+                        help="run one step of training for testing")
     return parser.parse_args()
 
 def train(config):

@@ -192,7 +192,7 @@ def evaluate(
             device_type=device.type, dtype=torch.float16, enabled=config["enable_mixed_precision"]
         ):
             logits, hidden = model(
-                X, 
+                X,
                 hidden if config["training_mode"] == "statefull" else None
             )
             total_loss += loss_fn(logits, Y).item()

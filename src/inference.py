@@ -8,10 +8,11 @@ def generate(
     model: CausalLSTM, 
     tokenizer: Tokenizer, 
     config: dict[str, int | float | str], 
-    device: torch.device, 
+    device: torch.device,
     init_word: str = None, 
     max_new_tokens: int = 32, 
-    temperature: float = 0.9, 
+    temperature: float = 0.9,
+    allow_unkown: bool = True,
     seed: int = None
 ) -> str:
     """
@@ -39,11 +40,16 @@ def generate(
     for _ in range(max_new_tokens):
         output, hidden = model(input_, hidden)
         probs = output.squeeze().div(temperature).exp().cpu()
-        while True:
+
+        if allow_unkown:
             token_idx = torch.multinomial(probs, 1)[0]
-            if token_idx != unk_id: break
+        else:
+            while True:
+                token_idx = torch.multinomial(probs, 1)[0]
+                if token_idx != unk_id: 
+                    break
         input_.fill_(token_idx)
-        generated_words.append(tokenizer.id_to_token(token_idx) if token_idx != eos_id else "\n")
+        generated_words.append(tokenizer.id_to_token(token_idx))
     return " ".join(generated_words)
 
 @torch.no_grad()

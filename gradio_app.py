@@ -1,160 +1,176 @@
-import os, json, torch, gradio as gr
-import matplotlib.pyplot as plt
-from io import BytesIO
-from PIL import Image
-import io, contextlib
+# app.py
+import os
+import gradio as gr
+import torch
 
-from src.config import read_config, resolve_device, model_summary
-from src.tokenizer import Tokenizer
-from src.model import CausalLSTM
+from src.app_utils import list_runs, load_run, plot_training_logs
 from src.inference import generate, predict_next_word
-from src.preprocess import text_cleaner   # your cleaner
+from src.config import model_summary
 
-# --- Utility functions ---
-def list_runs(models_dir="models"):
-    runs = [d for d in os.listdir(models_dir) if d.startswith("CausalLSTM_run")]
-    print(f"[DEBUG] Found runs in {models_dir}: {runs}")
-    return runs
 
-def load_run(run_name, models_dir="models"):
-    print(f"[DEBUG] Loading run: {run_name}")
-    run_dir = os.path.join(models_dir, run_name)
-    print(f"[DEBUG] Run directory: {run_dir}")
+# -----------------------------
+# Handlers
+# -----------------------------
+def find_runs_in_dir(models_dir):
+    try:
+        runs = list_runs(models_dir)
+        return gr.update(choices=runs, value=runs[0] if runs else None)
+    except Exception:
+        return gr.update(choices=[], value=None)
 
-    device = resolve_device()
-    print(f"[DEBUG] Resolved device: {device}")
 
-    config = read_config(os.path.join(run_dir, "config.yaml"))
-    print(f"[DEBUG] Loaded config keys: {list(config.keys())}")
+def refresh_runs(models_dir):
+    try:
+        runs = list_runs(models_dir)
+        return gr.update(choices=runs, value=runs[0] if runs else None)
+    except Exception:
+        return gr.update(choices=[], value=None)
 
-    with open(os.path.join(run_dir, "training_logs.json")) as f:
-        train_logs = json.load(f)
-    print(f"[DEBUG] Training logs keys: {list(train_logs.keys())}")
 
-    tokenizer = Tokenizer.load_from_file(os.path.join(run_dir, "tokenizer.json"))
-    print(f"[DEBUG] Tokenizer vocab size: {tokenizer.get_vocab_size()}")
+def on_select_run(run_path):
+    if not run_path:
+        return None, None, None, None, None, None, None, None
 
-    model = CausalLSTM(tokenizer.get_vocab_size(), **config["model_params"]).to(device)
-    print(f"[DEBUG] Instantiated model: {model.__class__.__name__}")
+    out = load_run(run_path)
+    if out is None:
+        return None, None, None, None, None, None, None, None
 
-    state_dict = torch.load(os.path.join(run_dir, "CausalLSTM_ckpnt.pt"), map_location=device)
-    print(f"[DEBUG] Loaded state_dict with {len(state_dict)} keys")
+    model, tokenizer, config, device, training_logs = out
 
-    model.load_state_dict(state_dict)
-    print("[DEBUG] Model state_dict loaded successfully")
+    # Dataset name formatting
+    dataset_name = os.path.basename(config.get("train_data_path", "N/A"))
+    dataset_name = dataset_name.replace("_", " ").replace(".txt", "").title()
 
-    return run_dir, device, config, train_logs, tokenizer, model
+    training_mode = str(config.get("training_mode", "N/A")).capitalize()
+    seq_len = config.get("seq_len", "N/A")
+    epochs = len(training_logs.get("train_loss", []))
+    rnn_type = config.get("model_params", {}).get("rnn_type", "N/A")
 
-def plot_logs(train_logs):
-    print("[DEBUG] Plotting training logs...")
-    fig, ax = plt.subplots(1, 3, figsize=(15,4))
+    # Training plot
+    fig = plot_training_logs(training_logs)
 
-    ax[0].plot(train_logs["train_loss"], label="train")
-    if train_logs.get("val_loss") and len(train_logs["val_loss"])>0:
-        ax[0].plot(train_logs["val_loss"], label="val")
-    ax[0].set_title("Loss"); ax[0].legend()
+    # Info strings for Markdown (combined into one string)
+    info_md = f"""
+    ### 📊 Run Information
+    
+    > 📚 **Train dataset**  
+    > {dataset_name}
+    
+    > ⚙️ **Training mode**  
+    > {training_mode}
+    
+    > 🔢 **Sequence length**  
+    > {seq_len}
+    
+    > 📈 **Epochs**  
+    > {epochs}
+    
+    > 🌀 **RNN type**  
+    > {rnn_type}
+    """
 
-    if train_logs.get("val_metric") and len(train_logs["val_metric"])>0:
-        ax[1].plot(train_logs["val_metric"], label="val metric")
-        ax[1].set_title("Validation Metric")
+    # Model summary text (Markdown with monospace formatting, centered)
+    summary_text = f"```\n{model_summary(model)}\n```"
+    
+    return (
+        model, tokenizer, config, device, training_logs,
+        info_md, fig, summary_text
+    )
 
-    ax[2].plot(train_logs["lr"], label="lr")
-    ax[2].set_title("Learning Rate")
 
-    buf = BytesIO()
-    plt.savefig(buf, format="png"); plt.close(fig)
-    buf.seek(0)
-    print("[DEBUG] Training plots generated")
-    return Image.open(buf)
+def on_generate_text(model, tokenizer, config, device, init_word, temperature, max_new_tokens):
+    if not all([model, tokenizer, config, device]):
+        return "Load a run first."
+    try:
+        return generate(
+            model=model,
+            tokenizer=tokenizer,
+            config=config,
+            device=device,
+            init_word=init_word.strip() if init_word else None,
+            max_new_tokens=int(max_new_tokens),
+            temperature=float(temperature),
+        )
+    except Exception as e:
+        return f"Generation failed: {e}"
 
-def capture_model_summary(model):
-    print("[DEBUG] Capturing model summary...")
-    buf = io.StringIO()
-    with contextlib.redirect_stdout(buf):
-        model_summary(model)
-    summary = buf.getvalue()
-    print("[DEBUG] Model summary captured")
-    return summary
 
-# --- Gradio callbacks ---
-current = {}
+# -----------------------------
+# Build UI
+# -----------------------------
+with gr.Blocks(theme=gr.themes.Soft()) as demo:
+    gr.Markdown("## CausalLSTM dashboard")
 
-def select_run(run_name):
-    print(f"[DEBUG] select_run called with: {run_name}")
-    run_dir, device, config, train_logs, tokenizer, model = load_run(run_name)
-    current.update(dict(run_dir=run_dir, device=device, config=config,
-                        train_logs=train_logs, tokenizer=tokenizer, model=model))
-    print("[DEBUG] Current run context updated")
+    # States
+    st_model = gr.State()
+    st_tokenizer = gr.State()
+    st_config = gr.State()
+    st_device = gr.State()
+    st_logs = gr.State()
 
-    info = f"""
-### Run Info
-- Training mode: **{config['training_mode']}**
-- Seq length: **{config['seq_len']}**
-- Train data: **{os.path.basename(config['train_data_path'])}**
-- Vocab size: **{tokenizer.get_vocab_size()}**
-- Epochs trained: **{len(train_logs['train_loss'])}**
-- Pretrained embeddings: **{config['use_glove_embeddings']}**
-"""
-    print("[DEBUG] Info section prepared")
-
-    model_str = str(model)
-    summary_str = capture_model_summary(model)
-    print("[DEBUG] Model structure and summary prepared")
-
-    return info, model_str, summary_str, plot_logs(train_logs)
-
-def do_generate(init_word, max_tokens, temp, seed_text):
-    print(f"[DEBUG] do_generate called with init_word={init_word}, max_tokens={max_tokens}, temp={temp}, seed_text={seed_text}")
-    seed = None
-    if seed_text and str(seed_text).strip() != "":
-        try:
-            seed = int(seed_text)
-            print(f"[DEBUG] Parsed seed: {seed}")
-        except:
-            print("[DEBUG] Failed to parse seed, using None")
-            seed = None
-    output = generate(current["model"], current["tokenizer"], current["config"],
-                      current["device"], init_word, max_tokens, temp, seed)
-    print("[DEBUG] Generation complete")
-    return output
-
-def do_predict(context):
-    print(f"[DEBUG] do_predict called with context='{context}'")
-    preds = predict_next_word(current["model"], current["tokenizer"], current["config"],
-                              current["device"], context, top_k=5)
-    print(f"[DEBUG] Predictions: {preds}")
-    return preds
-
-# --- Build Gradio UI ---
-with gr.Blocks() as demo:
-    gr.Markdown("# 📚 CausalLSTM Inference & Stats Dashboard")
-
-    with gr.Row():
+    # Row 1: directory + run selection
+    with gr.Row(equal_height=True):
         with gr.Column(scale=1):
-            gr.Markdown("## 1. Select a Run")
-            run_dropdown = gr.Dropdown(choices=list_runs(), label="Available Runs")
-            info_out = gr.Markdown()
-            model_out = gr.Textbox(label="Model Structure", lines=15)
-            summary_out = gr.Textbox(label="Model Summary", lines=15)
-            plot_out = gr.Image(type="pil", label="Training Logs")
-            run_dropdown.change(select_run, run_dropdown, [info_out, model_out, summary_out, plot_out])
+            models_dir = gr.Textbox(label="Models directory", value="models/", lines=1)
+            find_runs_btn = gr.Button("Find runs", variant="primary")
+            run_dropdown = gr.Dropdown(label="Select run", choices=[], value=None)
+            refresh_dir_btn = gr.Button("Refresh directory", variant="secondary")
+        with gr.Column(scale=3):
+            train_plot = gr.Plot()
 
+    # Row 2: info markdown + model summary
+    with gr.Row(equal_height=True):
         with gr.Column(scale=1):
-            with gr.Group():
-                gr.Markdown("## 2. Text Generation")
-                init_word = gr.Textbox(label="Initial word (optional)")
-                max_tokens = gr.Slider(10, 200, value=32, label="Max new tokens")
-                temp = gr.Slider(0.1, 2.0, value=0.9, label="Temperature")
-                seed_text = gr.Textbox(label="Seed (leave empty for None)")
-                gen_btn = gr.Button("Generate")
-                gen_out = gr.Textbox(label="Generated Text", lines=10)
-                gen_btn.click(do_generate, [init_word, max_tokens, temp, seed_text], gen_out)
+            info_box = gr.Markdown(label="Run info")
+        with gr.Column(scale=3):
+            summary_box = gr.Markdown(label="Model summary")
 
-            with gr.Group():
-                gr.Markdown("## 3. Next Word Prediction")
-                context = gr.Textbox(label="Context words", value="it is")
-                pred_btn = gr.Button("Predict Next Word")
-                pred_out = gr.Label(num_top_classes=5)
-                pred_btn.click(do_predict, context, pred_out)
+    gr.Markdown("---")
 
-demo.launch()
+    # Text generation tab
+    with gr.Tab("Text generation"):
+        with gr.Row(equal_height=True):
+            with gr.Column(scale=1):
+                init_word = gr.Textbox(label="Initial word", placeholder="e.g., hello")
+                temperature = gr.Slider(label="Temperature", minimum=0.2, maximum=1.5, value=0.9, step=0.05)
+                max_new_tokens = gr.Slider(label="Max new tokens", minimum=5, maximum=200, value=32, step=1)
+                gen_btn = gr.Button("Generate", variant="primary")
+            with gr.Column(scale=2):
+                gen_output = gr.Textbox(label="Generated text", interactive=False, lines=5)
+
+    # Next-word prediction tab
+    with gr.Tab("Next-word prediction"):
+        with gr.Row(equal_height=True):
+            with gr.Column(scale=1):
+                context_in = gr.Textbox(label="Context", placeholder="Type a short phrase...")
+                predict_btn = gr.Button("Predict", variant="primary")
+            with gr.Column(scale=2):
+                prob_output = gr.Label(num_top_classes=5)
+
+    # Events
+    find_runs_btn.click(fn=find_runs_in_dir, inputs=models_dir, outputs=run_dropdown)
+    refresh_dir_btn.click(fn=refresh_runs, inputs=models_dir, outputs=run_dropdown)
+
+    run_dropdown.change(
+        fn=on_select_run,
+        inputs=run_dropdown,
+        outputs=[
+            st_model, st_tokenizer, st_config, st_device, st_logs,
+            info_box, train_plot, summary_box
+        ]
+    )
+
+    gen_btn.click(
+        fn=on_generate_text,
+        inputs=[st_model, st_tokenizer, st_config, st_device, init_word, temperature, max_new_tokens],
+        outputs=gen_output
+    )
+
+    predict_btn.click(
+        fn=predict_next_word,
+        inputs=[st_model, st_tokenizer, st_config, st_device, context_in],
+        outputs=prob_output
+    )
+
+if __name__ == "__main__":
+    demo.launch()

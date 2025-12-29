@@ -2,6 +2,10 @@ import os
 import yaml
 import torch 
 
+#==============================#
+#     Config File Utilites     #
+#==============================#
+
 def read_config(config_path: str) -> dict:
     """
     ==========================================
@@ -29,6 +33,10 @@ def write_config(config: dict, config_path: str):
     except Exception as e:
         print(f"** Error writing config file: {e} **")
 
+#=====================================#
+#     Environment Setup Utilities     #
+#=====================================#
+
 def resolve_device(use_accelerator: bool=True) -> torch.device:
     """
     ==========================================================
@@ -53,29 +61,74 @@ def ensure_dirs(paths: dict):
             os.makedirs(p, exist_ok=True)
 
 
-def model_summary(model: torch.nn.Module, width: int = 80):
+#=================================#
+#     Model Summary Utilities     #
+#=================================#
+
+def get_model_summary(
+    model: torch.nn.Module
+) -> dict[str, str | int]:
     """
-    =========================================================
-    == Print Model's Paramters Summary (GiTHUB.com/HooM4N) ==
-    =========================================================
+    ====================================================
+    === Summarize PyTorch Modules (GitHUB.com/HooM4N) ==
+    ====================================================
     """
-    print("="*width)
-    print(f"Parameter Count Summary for {model.__class__.__name__}".center(width))
-    print("="*width)
-    print(f"{'Module':20} | {'Class':15} | {'Trainable':10} | {'Frozen':10} | {'Total':10}")
-    print("-"*width)
+    modules = {"name":[], "class_name":[], "repr":[],"trainable_params":[],
+               "non_trainable_params":[], "total_params":[]}
+    
+    for n,m in model.named_modules():
+        if len(n) == 0:
+            name = class_name = model.__class__.__name__
+        else:
+            name, class_name = n, m.__class__.__name__
+        
+        trainable_params = sum(p.numel() for p in m.parameters() if p.requires_grad)
+        non_trainable_params = sum(p.numel() for p in m.parameters() if not p.requires_grad)
+        
+        modules["name"].append(name)
+        modules["class_name"].append(class_name)
+        modules["repr"].append(f"{class_name}({m.extra_repr()})")
+        
+        modules["trainable_params"].append(trainable_params)
+        modules["non_trainable_params"].append(non_trainable_params)
+        modules["total_params"].append(trainable_params+non_trainable_params)
+    return modules
+    
+def model_summary(model: torch.nn.Module) -> str:
+    """
+    =============================================
+    == Model Summary Table (GitHUB.com/HooM4N) ==
+    =============================================
+    """
+    modules = get_model_summary(model)
+    num_w, mod_w = 12, 20
+    reprs = modules["repr"][1:]
+    class_w = max(30, max(len(r) for r in reprs) + 2) if reprs else 30
+    width = mod_w + class_w + num_w*3 + 12 
 
-    for name, m in model.named_modules():
-        if not name: 
-            continue
-        trainable_params = sum(p.numel() for p in m.parameters(recurse=False) if p.requires_grad)
-        frozen_params = sum(p.numel() for p in m.parameters(recurse=False) if not p.requires_grad)
-        total_params = trainable_params + frozen_params
+    header = [
+        "=" * width,
+        f"Model Summary for {model.__class__.__name__}".center(width),
+        "=" * width,
+        f"{'Module':{mod_w}} | {'Class':{class_w}} | {'Trainable':>{num_w}} | {'Frozen':>{num_w}} | {'Total':>{num_w}}",
+        "-" * width,
+    ]
 
-        print(f"{name:20} | {m.__class__.__name__:15} | {trainable_params:<10,} | {frozen_params:<10,} | {total_params:<10,}")
+    rows = [
+        f"{n:{mod_w}} | {r:{class_w}} | {t:{num_w},} | {f:{num_w},} | {tot:{num_w},}"
+        for n, r, t, f, tot in zip(
+            modules["name"][1:], modules["repr"][1:],
+            modules["trainable_params"][1:], modules["non_trainable_params"][1:],
+            modules["total_params"][1:]
+        )
+    ]
 
-    total_trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    total_frozen = sum(p.numel() for p in model.parameters() if not p.requires_grad)
-    print("-"*width)
-    print(f"{'TOTAL':20} | {'':15} | {total_trainable:<10,} | {total_frozen:<10,} | {total_trainable+total_frozen:<10,}")
-    print("="*width)
+    total_trainable = modules["trainable_params"][0]
+    total_frozen = modules["non_trainable_params"][0]
+
+    footer = [
+        "-" * width,
+        f"{'TOTAL':{mod_w}} | {'':{class_w}} | {total_trainable:{num_w},} | {total_frozen:{num_w},} | {(total_trainable + total_frozen):{num_w},}",
+        "=" * width,
+    ]
+    return "\n".join(header + rows + footer)
