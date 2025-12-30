@@ -22,6 +22,7 @@ class CausalLSTM(nn.Module):
         rnn_dropout_p: float = 0.25, 
         emb_dropout_p: float = 0.2, 
         out_dropout_p: float = 0.4,
+        tie_weights: bool = True,
         pretrained_embedding_matrix: torch.Tensor = None,
         freeze_pretrained_embeddings: bool = True,
         proj_nonlinearity: bool = False,
@@ -30,13 +31,13 @@ class CausalLSTM(nn.Module):
         assert rnn_type in ["LSTM", "GRU"]
         self.rnn_type = rnn_type
         self.hidden_dim = hidden_dim
-        self.embedding_dim = embedding_dim
         self.num_layers = num_layers
         self.proj_nonlinearity = proj_nonlinearity
+        self.tie_weights = tie_weights
         
         if pretrained_embedding_matrix is not None:
             assert isinstance(pretrained_embedding_matrix, torch.Tensor)
-            assert pretrained_embedding_matrix.size() == (vocab_size, embedding_dim)
+            assert pretrained_embedding_matrix.size(0) == vocab_size
             self.embedding = nn.Embedding.from_pretrained(
                 pretrained_embedding_matrix, 
                 freeze = freeze_pretrained_embeddings
@@ -44,25 +45,35 @@ class CausalLSTM(nn.Module):
         else:
             self.embedding = nn.Embedding(vocab_size, embedding_dim)
             
+        self.embedding_dim = self.embedding.embedding_dim
         self.emb_dropout = nn.Dropout(emb_dropout_p)
         self.rnn = getattr(nn, rnn_type)(
-            embedding_dim, hidden_dim, num_layers, batch_first=True, dropout = rnn_dropout_p
+            self.embedding_dim, hidden_dim, num_layers, batch_first=True, dropout = rnn_dropout_p
         )
         self.out_dropout = nn.Dropout(out_dropout_p)
         self.fc = nn.Linear(embedding_dim, vocab_size)
+
+        self.use_proj = False
         
-        self.use_proj = True if hidden_dim != embedding_dim else False
+        if tie_weights:
+            self.fc.weight = self.embedding.weight
+            self.use_proj = True if hidden_dim != embedding_dim else False
+        
         if self.use_proj:
             self.proj = nn.Linear(hidden_dim, embedding_dim)
-        self.fc.weight = self.embedding.weight 
             
         self.init_weights()
 
     def init_weights(self):
         initrange = 0.1
+        
         if self.use_proj:
             nn.init.uniform_(self.proj.weight, -initrange, initrange)
             nn.init.zeros_(self.proj.bias)
+            
+        if not self.tie_weights:
+            nn.init.uniform_(self.fc.weight, -initrange, initrange)
+            
         nn.init.uniform_(self.embedding.weight, -initrange, initrange)
         nn.init.zeros_(self.fc.bias)
 

@@ -101,7 +101,7 @@ def model_summary(model: torch.nn.Module) -> str:
     =============================================
     """
     modules = get_model_summary(model)
-    num_w, mod_w = 12, 20
+    num_w, mod_w = 8,18
     reprs = modules["repr"][1:]
     class_w = max(30, max(len(r) for r in reprs) + 2) if reprs else 30
     width = mod_w + class_w + num_w*3 + 12 

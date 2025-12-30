@@ -9,6 +9,7 @@ def get_data(
     min_token_thresh: int = 15, 
     chunk_separator: str = "\n\n",
     preprocess: bool = True,
+    add_special_tokens: bool = True,
     entity_replacement: bool = False,
     entities_to_replace: list[str] = ["PERSON", "GPE", "NORP", "LANGUAGE", "LOC"]
 ) -> list[str]:
@@ -37,26 +38,35 @@ def get_data(
             List of entity types to replace. 
             See the `replace_entities` docstring for the full list of supported entities.
     """
-    assert os.path.exists(data_path), "data file does not exists!"
-    assert data_path.endswith(".txt"), "expects data as .txt file"
-    
-    with open(data_path, "r", encoding="utf-8") as f:
-        raw_chunks = f.read().split(chunk_separator)
+    if data_path.endswith(".txt"):
+        assert os.path.exists(data_path), "data file does not exists!"
         
-    processed = []
-    for doc in tqdm(raw_chunks, desc="Processing Data"):
-        if entity_replacement:
-            doc = replace_entities(doc, entities_to_replace)
-        if preprocess:
-            doc = text_cleaner(doc)
-            if len(doc.split()) >= min_token_thresh:
-                processed.append(f" <bos> {doc} <eos> ")
-        else:
-            processed.append(f" <bos> {doc} <eos> ")
+        with open(data_path, "r", encoding="utf-8") as f:
+            raw_chunks = f.read().split(chunk_separator)
             
-    print(f"*** file: \"{os.path.basename(data_path)}\" loaded ***")
-    summarize_data(processed)
-    return processed
+        processed = []
+        for doc in tqdm(raw_chunks, desc="Processing Data"):
+            if entity_replacement:
+                doc = replace_entities(doc, entities_to_replace)
+            if preprocess:
+                doc = text_cleaner(doc)
+                if len(doc.split()) >= min_token_thresh:
+                    processed.append(f" <bos> {doc} <eos> " if add_special_tokens else doc)
+            else:
+                processed.append(f" <bos> {doc} <eos> " if add_special_tokens else doc)
+                
+        print(f"*** file: \"{os.path.basename(data_path)}\" loaded ***")
+        summarize_data(processed)
+        return processed
+    else:
+        assert os.path.exists(data_path), "data dir does not exists!"
+        files, cat_data = os.listdir(data_path), []
+        for p in files:
+            if p.endswith(".txt"):
+                cat_data.extend(get_data(os.path.join(data_path, p)))
+        print(f"*** {len(files)} files loaded and merged ***")
+        summarize_data(cat_data)
+        return cat_data
         
 def train_val_split(
     data: list[str], 

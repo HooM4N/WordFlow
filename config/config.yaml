@@ -1,8 +1,8 @@
 #=====================#
 #     PATHS SETUP     #
 #=====================#
-train_data_path: data/science_of_getting_rich.txt
-val_data_path: null
+train_data_path: data/wikitext-2-cased/wikitext2-cased-train.txt
+val_data_path: data/wikitext-2-cased/wikitext2-cased-valid.txt
 models_dir: models/
 checkpoint_path: null
 glove_embeddings_path: null
@@ -17,24 +17,26 @@ use_accelerator: true
 #=======================#
 #     DATA SETTINGS     #
 #=======================#
-seq_len: 12
-min_seq_len: 8
-max_vocab_size: 20000
+seq_len: 32
+min_seq_len: 20
+max_vocab_size: 35000
 
 get_data_params:
   min_token_thresh: 20
   chunk_separator: "\n\n"
+  preprocess: false
   entity_replacement: false
+  add_special_tokens: true
 
-val_split_enable: true
-val_split_ratio: 0.12
+val_split_enable: false
+val_split_ratio: 0.15
 val_split_shuffle: true
-
+tokenizer_lowercase: false
 #=========================#
 #     TRAINING PARAMS     #
 #=========================#
-n_epochs: 2
-batch_size: 32
+n_epochs: 50
+batch_size: 128
 enable_mixed_precision: true
 
 early_stopping_epsilon: 0.0003
@@ -52,13 +54,14 @@ glove_dim: 200
 #======================#
 model_params:
  rnn_type: GRU
- embedding_dim: 16
- hidden_dim: 16
+ embedding_dim: 400
+ hidden_dim: 900
  num_layers: 2
+ tie_weights: true
  
- emb_dropout_p: 0.15
- rnn_dropout_p: 0.3
- out_dropout_p: 0.4
+ emb_dropout_p: 0.2
+ rnn_dropout_p: 0.2
+ out_dropout_p: 0.2
  
  proj_nonlinearity: false
  freeze_pretrained_embeddings: true
@@ -75,5 +78,5 @@ lr_scheduler_params:
 #     OPTIMIZER PARAMS     #
 #==========================#
 optimizer_params:
-  lr: 0.002
+  lr: 0.004
   weight_decay: 0.00002

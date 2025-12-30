@@ -78,6 +78,6 @@ def predict_next_word(
     output, _ = model(input_, hidden) 
     top_probs, top_ids = torch.topk(torch.softmax(output[0,:,-1].cpu(), dim=0), top_k)
     return {
-        tokenizer.id_to_token(i.item()): round(p.item()*100, 2) 
+        tokenizer.id_to_token(i.item()): round(p.item(), 2) 
         for i, p in zip(top_ids, top_probs)
     }
