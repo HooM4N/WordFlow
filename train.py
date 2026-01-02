@@ -5,13 +5,13 @@ from torch.utils.data import DataLoader
 from src.config import resolve_device, read_config, ensure_dirs, model_summary
 from src.data import get_data, train_val_split, summarize_data, flatten
 from src.tokenizer import Tokenizer
-from src.dataset import TruncatedBPTTDataset, StatelessLSTMDataset
+from src.dataset import StatefullDataset, StatelessDataset
 from src.model import CausalLSTM, detach_hidden
 from src.pretrained_embeddings import get_glove_embeddings
 from src.trainer import trainer
 
 def get_args():
-    parser = ArgumentParser(description="*** CausalLSTM: Word-Level LSTM Language Modeling ***")
+    parser = ArgumentParser(description="*** WordFlow: Word-Level LSTM Language Modeling ***")
     parser.add_argument("--config_path", type=str, default="config/config.yaml",
                         help="path to config file (yaml)")
     parser.add_argument("--training_mode", choices=["statefull", "stateless"], default=None,
@@ -75,7 +75,7 @@ def train(config):
         def identity_collate(batch): 
             return batch[0]
             
-        train_ds = TruncatedBPTTDataset(
+        train_ds = StatefullDataset(
             flatten(train_ids), config["batch_size"], config["seq_len"]
         )
         train_ds.get_info()
@@ -83,7 +83,7 @@ def train(config):
             train_ds, batch_size=1, shuffle=False, pin_memory = True, collate_fn = identity_collate
         )
         if evaluate:
-            val_ds = TruncatedBPTTDataset(
+            val_ds = StatefullDataset(
                 flatten(val_ids), config["batch_size"], config["seq_len"]
             )
             val_loader = DataLoader(
@@ -91,7 +91,7 @@ def train(config):
             )
                 
     elif config["training_mode"] == "stateless":
-        train_ds = StatelessLSTMDataset(
+        train_ds = StatelessDataset(
             train_ids, config["seq_len"], config["min_seq_len"]
         )
         print(f"*** {len(train_ds):,} training samples created ***")
@@ -99,7 +99,7 @@ def train(config):
             train_ds, batch_size=config["batch_size"], shuffle=True, pin_memory = True
         )
         if evaluate:
-            val_ds = StatelessLSTMDataset(
+            val_ds = StatelessDataset(
                 val_ids, config["seq_len"], config["min_seq_len"]
             )
             val_loader = DataLoader(

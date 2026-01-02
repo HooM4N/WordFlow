@@ -1,8 +1,8 @@
 #=====================#
 #     PATHS SETUP     #
 #=====================#
-train_data_path: data/wikitext-2-cased/wikitext2-cased-train.txt
-val_data_path: data/wikitext-2-cased/wikitext2-cased-valid.txt
+train_data_path: data/simple_stories_25k.txt
+val_data_path: null
 models_dir: models/
 checkpoint_path: null
 glove_embeddings_path: null
@@ -17,12 +17,12 @@ use_accelerator: true
 #=======================#
 #     DATA SETTINGS     #
 #=======================#
-seq_len: 32
-min_seq_len: 20
-max_vocab_size: 35000
+seq_len: 40
+min_seq_len: 25
+max_vocab_size: 20000
 
 get_data_params:
-  min_token_thresh: 20
+  min_token_thresh: 15
   chunk_separator: "\n\n"
   preprocess: false
   entity_replacement: false
@@ -32,11 +32,12 @@ val_split_enable: false
 val_split_ratio: 0.15
 val_split_shuffle: true
 tokenizer_lowercase: false
+
 #=========================#
 #     TRAINING PARAMS     #
 #=========================#
 n_epochs: 50
-batch_size: 128
+batch_size: 256
 enable_mixed_precision: true
 
 early_stopping_epsilon: 0.0003
@@ -54,14 +55,14 @@ glove_dim: 200
 #======================#
 model_params:
  rnn_type: GRU
- embedding_dim: 400
- hidden_dim: 900
+ embedding_dim: 350
+ hidden_dim: 768
  num_layers: 2
  tie_weights: true
  
- emb_dropout_p: 0.2
- rnn_dropout_p: 0.2
- out_dropout_p: 0.2
+ emb_dropout_p: 0.25
+ rnn_dropout_p: 0.25
+ out_dropout_p: 0.3
  
  proj_nonlinearity: false
  freeze_pretrained_embeddings: true
@@ -78,5 +79,5 @@ lr_scheduler_params:
 #     OPTIMIZER PARAMS     #
 #==========================#
 optimizer_params:
-  lr: 0.004
+  lr: 0.002
   weight_decay: 0.00002

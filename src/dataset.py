@@ -1,7 +1,7 @@
 import torch
 from torch.utils.data import Dataset
 
-class TruncatedBPTTDataset(Dataset):
+class StatefullDataset(Dataset):
     """
     ===========================================================
     == Truncated BPTT Dataset (GiTHUB.com/HooM4N/CausalLSTM) ==
@@ -44,7 +44,7 @@ class TruncatedBPTTDataset(Dataset):
         print(f"*** stream lenght: {self.stream_len} | number of batches: {self.__len__()} ***")
 
 
-class StatelessLSTMDataset(Dataset):
+class StatelessDataset(Dataset):
     """
     ==============================================================================
     == Stateless LSTM Language Modeling Dataset (GiTHUB.com/HoomM4N/CausalLSTM) ==

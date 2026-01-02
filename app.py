@@ -1,16 +1,15 @@
-# app.py
-import os
+import os, torch
 import gradio as gr
-import torch
 
 from src.app_utils import list_runs, load_run, plot_training_logs
 from src.inference import generate, predict_next_word
 from src.config import model_summary
 
 
-# -----------------------------
-# Handlers
-# -----------------------------
+#==================#
+#     Handlers     #
+#==================#
+
 def find_runs_in_dir(models_dir):
     try:
         runs = list_runs(models_dir)
@@ -37,39 +36,27 @@ def on_select_run(run_path):
 
     model, tokenizer, config, device, training_logs = out
 
-    # Dataset name formatting
-    dataset_name = os.path.basename(config.get("train_data_path", "N/A"))
-    #dataset_name = dataset_name.replace("_", " ").replace(".txt", "").title()
-
-    training_mode = str(config.get("training_mode", "N/A")).capitalize()
-    seq_len = config.get("seq_len", "N/A")
-    epochs = len(training_logs.get("train_loss", []))
-    rnn_type = config.get("model_params", {}).get("rnn_type", "N/A")
-
-    # Training plot
     fig = plot_training_logs(training_logs)
 
-    # Info strings for Markdown (combined into one string)
     info_md = f"""
-    ### 📊 Run Information
+    ### 📊 RUN INFORMATION 📊
     
-    > 📚 **Train Dataset**  
-    > {dataset_name}
+    > 📚 **Training Dataset**  
+    > {os.path.basename(config["train_data_path"])}
     
     > ⚙️ **Training mode**  
-    > {training_mode}
+    > {config["training_mode"].capitalize()}
     
     > 🔢 **Sequence length**  
-    > {seq_len}
+    > {config["seq_len"]}
     
     > 📈 **Training Epochs**  
-    > {epochs}
+    > {len(training_logs["train_loss"])}
     
     > 🌀 **RNN type**  
-    > {rnn_type}
+    > {config["model_params"]["rnn_type"]}
     """
 
-    # Model summary text (Markdown with monospace formatting, centered)
     summary_text = f"```\n{model_summary(model)}\n```"
     
     return (
@@ -93,14 +80,14 @@ def on_generate_text(model, tokenizer, config, device, init_word, temperature, m
         )
     except Exception as e:
         return f"Generation failed: {e}"
+        
+#===================#
+#     Gradio UI     #
+#===================#
 
-
-# -----------------------------
-# Build UI
-# -----------------------------
-def app():
-    with gr.Blocks(theme=gr.themes.Soft()) as demo:
-        gr.Markdown("## CausalLSTM dashboard")
+def get_app():
+    with gr.Blocks(theme=gr.themes.Soft()) as app:
+        gr.Markdown("## WordFlow Experiments Dashboard")
     
         # States
         st_model = gr.State()
@@ -109,7 +96,7 @@ def app():
         st_device = gr.State()
         st_logs = gr.State()
     
-        # Row 1: directory + run selection
+        # 1st Row
         with gr.Row(equal_height=True):
             with gr.Column(scale=1):
                 models_dir = gr.Textbox(label="Models directory", value="models/", lines=1)
@@ -119,7 +106,7 @@ def app():
             with gr.Column(scale=3):
                 train_plot = gr.Plot()
     
-        # Row 2: info markdown + model summary
+        # 2nd Row
         with gr.Row(equal_height=True):
             with gr.Column(scale=1):
                 info_box = gr.Markdown(label="Run info")
@@ -132,14 +119,14 @@ def app():
         with gr.Tab("Text Generation"):
             with gr.Row(equal_height=True):
                 with gr.Column(scale=1):
-                    init_word = gr.Textbox(label="Initial word", placeholder="e.g., hello")
+                    init_word = gr.Textbox(label="Initial word", placeholder="e.g., well")
                     temperature = gr.Slider(label="Temperature", minimum=0.2, maximum=1.5, value=0.9, step=0.05)
                     max_new_tokens = gr.Slider(label="Max new tokens", minimum=5, maximum=200, value=32, step=1)
                     gen_btn = gr.Button("Generate", variant="primary")
                 with gr.Column(scale=2):
-                    gen_output = gr.Textbox(label="Generated text", interactive=False, lines=5)
+                    gen_output = gr.Textbox(label="Generated Text", interactive=False, lines=5)
     
-        # Next-word prediction tab
+        # Next word prediction tab
         with gr.Tab("Next Word Prediction"):
             with gr.Row(equal_height=True):
                 with gr.Column(scale=1):
@@ -172,8 +159,8 @@ def app():
             inputs=[st_model, st_tokenizer, st_config, st_device, context_in],
             outputs=prob_output
         )
-    return demo
+    return app
 
 if __name__ == "__main__":
-    demo = app()
-    demo.launch()
+    app = get_app()
+    app.launch()

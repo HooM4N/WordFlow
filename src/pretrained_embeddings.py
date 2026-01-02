@@ -31,3 +31,10 @@ def get_glove_embeddings(
     print(f"*** {len(vocab) - found:,} out-of-vocab words ***")
     print(f"*** time taken: {time.time() - start:.2f}s ***")
     return emb
+
+def fill_zero(matrix: np.ndarray) -> np.ndarray:
+    mask = np.all(matrix == 0, axis=1)
+    if mask.sum() == 0:
+        return matrix
+    matrix[mask] = matrix[~mask].mean(axis=0)
+    return matrix

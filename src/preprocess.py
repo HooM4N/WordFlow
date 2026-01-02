@@ -44,7 +44,7 @@ def text_cleaner(text: str) -> str:
     for old, new in replacements.items(): # expand contractions
         text = text.replace(old, new)
 
-    text = text.translate(str.maketrans({ch: " " for ch in '!"#$%&()*+-/:;<=>?@[\\]^_`{|}~'})) # remove punks except essentials
+    text = text.translate(str.maketrans({ch: " " for ch in '!?"#$%&()*+-/:;<=>@[\\]^_`{|}~'})) # remove punks except essentials
     
     text = text.replace(".", " . ").replace(",", " , ") # seprated dots & commas
     

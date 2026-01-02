@@ -51,9 +51,9 @@ def get_data(
             if preprocess:
                 doc = text_cleaner(doc)
                 if len(doc.split()) >= min_token_thresh:
-                    processed.append(f" <bos> {doc} <eos> " if add_special_tokens else doc)
+                    processed.append(f" {doc} <eos> " if add_special_tokens else doc)
             else:
-                processed.append(f" <bos> {doc} <eos> " if add_special_tokens else doc)
+                processed.append(f" {doc} <eos> " if add_special_tokens else doc)
                 
         print(f"*** file: \"{os.path.basename(data_path)}\" loaded ***")
         summarize_data(processed)
