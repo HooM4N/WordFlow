@@ -39,22 +39,18 @@ def on_select_run(run_path):
     fig = plot_training_logs(training_logs)
 
     info_md = f"""
-    ### 📊 RUN INFORMATION 📊
+    #### <center>=== RUN INFORMATION ===
     
-    > 📚 **Training Dataset**  
+    > 📚 **Training Dataset:**  
     > {os.path.basename(config["train_data_path"])}
     
-    > ⚙️ **Training mode**  
-    > {config["training_mode"].capitalize()}
+    > ⚙️ **Training Mode:** {config["training_mode"].capitalize()}
     
-    > 🔢 **Sequence length**  
-    > {config["seq_len"]}
+    > 🔢 **Sequence Length:**  {config["seq_len"]}
     
-    > 📈 **Training Epochs**  
-    > {len(training_logs["train_loss"])}
+    > 📈 **Training Epochs:**  {len(training_logs["train_loss"])}
     
-    > 🌀 **RNN type**  
-    > {config["model_params"]["rnn_type"]}
+    > 🌀 **RNN Type:**  {config["model_params"]["rnn_type"]}
     """
 
     summary_text = f"```\n{model_summary(model)}\n```"
@@ -86,8 +82,8 @@ def on_generate_text(model, tokenizer, config, device, init_word, temperature, m
 #===================#
 
 def get_app():
-    with gr.Blocks(theme=gr.themes.Soft()) as app:
-        gr.Markdown("## WordFlow Experiments Dashboard")
+    with gr.Blocks(theme=gr.themes.Glass()) as app:
+        gr.Markdown("## *WordFlow Experiments Dashboard*")
     
         # States
         st_model = gr.State()
