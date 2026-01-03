@@ -1,14 +1,12 @@
-import os
-import re
-import json
+import os, re, json
 from typing import Iterable, Callable, List
 from collections import Counter
 
 class Tokenizer():
     """
-    =========================================================
-    == Word-Level Tokenizer (GitHub.com/HooM4N/CausalLSTM) ==
-    =========================================================
+    =======================================================
+    == Word-Level Tokenizer (GitHub.com/HooM4N/WordFlow) ==
+    =======================================================
     - Frequency-based vocabulary building (up to `max_tokens`).
     - Lowercase normalizer by default, can be overridden by a custom preprocessor.
     - Whitespace-split tokenization.
@@ -85,7 +83,7 @@ class Tokenizer():
         try:
             with open(save_path, "w", encoding="utf-8") as f:
                 json.dump({
-                    "name": "Word-Level Tokenizer (GiTHUB.com/HooM4N/CausalLSTM)",
+                    "name": "Word-Level Tokenizer (GiTHUB.com/HooM4N/WordFlow)",
                     "vocab_size": len(self.idx2word),
                     "special_tokens": self.special_tokens,
                     "unk_token": self.unk_token,

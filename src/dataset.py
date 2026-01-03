@@ -3,9 +3,9 @@ from torch.utils.data import Dataset
 
 class StatefullDataset(Dataset):
     """
-    ===========================================================
-    == Truncated BPTT Dataset (GiTHUB.com/HooM4N/CausalLSTM) ==
-    ===========================================================
+    =========================================================
+    == Truncated BPTT Dataset (GiTHUB.com/HooM4N/WordFlow) ==
+    =========================================================
     - Takes full corpus token IDs as a list and converts to a torch Tensor.
     - Splits full sequence into batch_size streams, with hidden states carried across streams.
     - __len__ returns the number of batches.
@@ -46,9 +46,9 @@ class StatefullDataset(Dataset):
 
 class StatelessDataset(Dataset):
     """
-    ==============================================================================
-    == Stateless LSTM Language Modeling Dataset (GiTHUB.com/HoomM4N/CausalLSTM) ==
-    ==============================================================================
+    ============================================================================
+    == Stateless LSTM Language Modeling Dataset (GiTHUB.com/HoomM4N/WordFlow) ==
+    ============================================================================
     """
     def __init__(
         self, 

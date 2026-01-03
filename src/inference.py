@@ -1,24 +1,24 @@
 import torch
 from .tokenizer import Tokenizer
-from .model import CausalLSTM
-from .preprocess import text_cleaner
+from .model import WordFlowModel
+from .preprocess import text_preprocess
 
 @torch.no_grad()
 def generate(
-    model: CausalLSTM, 
+    model: WordFlowModel, 
     tokenizer: Tokenizer, 
     config: dict[str, int | float | str], 
     device: torch.device,
     init_word: str = None, 
     max_new_tokens: int = 32, 
     temperature: float = 0.9,
-    allow_unkown: bool = True,
+    post_process: bool = True,
     seed: int = None
 ) -> str:
     """
-    ====================================================================
-    == Autoregressive Word Generation (GiTHUB.com/HoomM4N/CausalLSTM) ==
-    ====================================================================
+    ==================================================================
+    == Autoregressive Word Generation (GiTHUB.com/HoomM4N/WordFlow) ==
+    ==================================================================
     - Starts from given init word 
     - Samples tokens using temperature scaling
     - Skips <unk>, replaces <eos> with newline  
@@ -41,30 +41,36 @@ def generate(
         output, hidden = model(input_, hidden)
         probs = output.squeeze().div(temperature).exp().cpu()
 
-        if allow_unkown:
+        while True:
             token_idx = torch.multinomial(probs, 1)[0]
-        else:
-            while True:
-                token_idx = torch.multinomial(probs, 1)[0]
-                if token_idx != unk_id: 
-                    break
+            if token_idx != unk_id: 
+                break
+        
+        if token_idx == eos_id:
+            break
         input_.fill_(token_idx)
         generated_words.append(tokenizer.id_to_token(token_idx))
-    return " ".join(generated_words)
+        
+    text = " ".join(generated_words)
+    return post_process_fn(text) if post_process else text
 
+def post_process_fn(text:str) -> str:
+    return text.replace("<newline>", "\n").replace("<eos>", "")
+    
 @torch.no_grad()
 def predict_next_word(
-    model: CausalLSTM, 
+    model: WordFlowModel, 
     tokenizer: Tokenizer, 
     config: dict[str, int | float | str], 
     device: torch.device, 
     context: str = "it is", 
-    top_k: int = 5
+    top_k: int = 5,
+    preprocess_kwargs: dict = None,
 ) -> dict[str, float]:
     """
-    ======================================================================
-    == Next Word Probability Prediction (GiTHUB.com/HoomM4N/CausalLSTM) ==
-    ======================================================================
+    ====================================================================
+    == Next Word Probability Prediction (GiTHUB.com/HoomM4N/WordFlow) ==
+    ====================================================================
     - Returns top k candidate words with their probabilities given a context
     """
     model.eval()
@@ -72,7 +78,7 @@ def predict_next_word(
     tkns = ["<unk>", "<eos>"]
     unk_id, eos_id = [tokenizer.token_to_id(t) for t in tkns]
 
-    context = text_cleaner(context)
+    context = text_preprocess(context, **preprocess_kwargs)
     context_ids = tokenizer.encode(context)
     input_ = torch.tensor(context_ids, dtype=torch.long).reshape(1,-1).to(device)
     output, _ = model(input_, hidden) 

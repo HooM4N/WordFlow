@@ -6,12 +6,12 @@ from src.config import resolve_device, read_config, ensure_dirs, model_summary
 from src.data import get_data, train_val_split, summarize_data, flatten
 from src.tokenizer import Tokenizer
 from src.dataset import StatefullDataset, StatelessDataset
-from src.model import CausalLSTM, detach_hidden
+from src.model import WordFlowModel, detach_hidden
 from src.pretrained_embeddings import get_glove_embeddings
 from src.trainer import trainer
 
 def get_args():
-    parser = ArgumentParser(description="*** WordFlow: Word-Level LSTM Language Modeling ***")
+    parser = ArgumentParser(description="*** WordFlow: Word-Level Language Modeling with RNNs ***")
     parser.add_argument("--config_path", type=str, default="config/config.yaml",
                         help="path to config file (yaml)")
     parser.add_argument("--training_mode", choices=["statefull", "stateless"], default=None,
@@ -32,10 +32,9 @@ def train(config):
     #=======================#
     #     Configuration     #
     #=======================#
+    #validate_config(config)
     device = resolve_device(config["use_accelerator"])
     ensure_dirs(config)
-    assert config["training_mode"] in ["statefull", "stateless"], \
-        f"training_mode should be either 'statefull' or 'stateless', got {config['training_mode']!r}"
     #======================#
     #     Prepare Data     #
     #======================#
@@ -60,7 +59,10 @@ def train(config):
     #======================#
     #     Tokenization     #
     #======================#        
-    tokenizer = Tokenizer(max_tokens = config["max_vocab_size"], lowercase = config["tokenizer_lowercase"])
+    tokenizer = Tokenizer(
+        max_tokens = config["max_vocab_size"], 
+        lowercase = config["tokenizer_lowercase"]
+    )
     tokenizer.build_vocab(train_corpus)
     train_ids = [tokenizer.encode(d) for d in train_corpus]
     
@@ -92,7 +94,7 @@ def train(config):
                 
     elif config["training_mode"] == "stateless":
         train_ds = StatelessDataset(
-            train_ids, config["seq_len"], config["min_seq_len"]
+            train_ids, config["seq_len"], min(config["min_seq_len"], config["seq_len"])
         )
         print(f"*** {len(train_ds):,} training samples created ***")
         train_loader = DataLoader(
@@ -120,7 +122,7 @@ def train(config):
             print(f"*** failed to load pretrained embedding matrix. initializing with random values: {e} ***")
         
     torch.manual_seed(config["seed"])
-    model = CausalLSTM(
+    model = WordFlowModel(
         tokenizer.get_vocab_size(), 
         **config["model_params"], 
         pretrained_embedding_matrix = pretrained_embeddings if config["use_glove_embeddings"] else None
@@ -151,7 +153,9 @@ if __name__ == "__main__":
     ## READ CONFIG FILE ##
     config = read_config(args.config_path)
     ## OVERRIDE CONFIG WITH CLI ARGS ##
-    for key in ["training_mode", "n_epochs", "batch_size", "use_accelerator", "seed", "dry_run"]:
+    for key in [
+        "training_mode", "n_epochs", "batch_size", "use_accelerator", "seed", "dry_run"
+    ]:
         val = getattr(args, key)
         if val is not None:
             config[key] = val

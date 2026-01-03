@@ -10,7 +10,7 @@ from src.config import model_summary
 #     Handlers     #
 #==================#
 
-def find_runs_in_dir(models_dir):
+def find_runs_in_dir(models_dir: str):
     try:
         runs = list_runs(models_dir)
         return gr.update(choices=runs, value=runs[0] if runs else None)
@@ -18,7 +18,7 @@ def find_runs_in_dir(models_dir):
         return gr.update(choices=[], value=None)
 
 
-def refresh_runs(models_dir):
+def refresh_runs(models_dir: str):
     try:
         runs = list_runs(models_dir)
         return gr.update(choices=runs, value=runs[0] if runs else None)
@@ -26,7 +26,7 @@ def refresh_runs(models_dir):
         return gr.update(choices=[], value=None)
 
 
-def on_select_run(run_path):
+def on_select_run(run_path: str):
     if not run_path:
         return None, None, None, None, None, None, None, None
 
@@ -39,7 +39,7 @@ def on_select_run(run_path):
     fig = plot_training_logs(training_logs)
 
     info_md = f"""
-    #### <center>=== RUN INFORMATION ===
+    #### <center>---=( RUN INFORMATION )=---
     
     > 📚 **Training Dataset:**  
     > {os.path.basename(config["train_data_path"])}
@@ -82,8 +82,19 @@ def on_generate_text(model, tokenizer, config, device, init_word, temperature, m
 #===================#
 
 def get_app():
-    with gr.Blocks(theme=gr.themes.Glass()) as app:
-        gr.Markdown("## *WordFlow Experiments Dashboard*")
+    with gr.Blocks(
+        theme=gr.themes.Origin(
+            text_size=gr.themes.sizes.text_md,
+            primary_hue=gr.themes.colors.rose,
+            secondary_hue=gr.themes.colors.yellow,
+            neutral_hue=gr.themes.colors.violet,
+        ),
+        title = "WordFlow"
+    ) as app:
+        gr.Markdown("# *WordFlow Experiments Dashboard*")
+        gr.Markdown("#### <center> **WordFlow** is a Word-Level Languae Modeling Project using"
+                    " Recurrent Neural Networks <a href='https://GiTHUB.com/HooM4N/WordFlow'>"
+                    "(GiTHUB.com/HooM4N/WordFlow)</a>", container=True)
     
         # States
         st_model = gr.State()
@@ -100,14 +111,14 @@ def get_app():
                 run_dropdown = gr.Dropdown(label="Select run", choices=[], value=None)
                 refresh_dir_btn = gr.Button("Refresh directory", variant="secondary")
             with gr.Column(scale=3):
-                train_plot = gr.Plot()
+                train_plot = gr.Plot(label="Training Plots")
     
         # 2nd Row
         with gr.Row(equal_height=True):
             with gr.Column(scale=1):
-                info_box = gr.Markdown(label="Run info")
+                info_box = gr.Markdown(label="Run info", container=True)
             with gr.Column(scale=3):
-                summary_box = gr.Markdown(label="Model summary")
+                summary_box = gr.Markdown(label="Model Summary", container=False)
     
         gr.Markdown("---")
     
@@ -115,9 +126,9 @@ def get_app():
         with gr.Tab("Text Generation"):
             with gr.Row(equal_height=True):
                 with gr.Column(scale=1):
-                    init_word = gr.Textbox(label="Initial word", placeholder="e.g., well")
-                    temperature = gr.Slider(label="Temperature", minimum=0.2, maximum=1.5, value=0.9, step=0.05)
-                    max_new_tokens = gr.Slider(label="Max new tokens", minimum=5, maximum=200, value=32, step=1)
+                    init_word = gr.Textbox(value = "<eos>", label="Initial word", placeholder="e.g., well")
+                    temperature = gr.Slider(label="Temperature", minimum=0.4, maximum=1.5, value=0.75, step=0.05)
+                    max_new_tokens = gr.Slider(label="Max new tokens", minimum=5, maximum=200, value=50, step=1)
                     gen_btn = gr.Button("Generate", variant="primary")
                 with gr.Column(scale=2):
                     gen_output = gr.Textbox(label="Generated Text", interactive=False, lines=5)

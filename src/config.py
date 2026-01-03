@@ -1,6 +1,5 @@
-import os
-import yaml
-import torch 
+import os, yaml
+import torch
 
 #==============================#
 #     Config File Utilites     #

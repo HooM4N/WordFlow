@@ -1,25 +1,30 @@
-import os
-import random
+import os, random
 from collections import Counter
 from tqdm import tqdm
-from .preprocess import text_cleaner, replace_entities
+from .preprocess import text_preprocess, replace_entities
 
 def get_data(
     data_path: str, 
     min_token_thresh: int = 15, 
     chunk_separator: str = "\n\n",
     preprocess: bool = True,
+    preprocess_kwargs: dict = None,
     add_special_tokens: bool = True,
     entity_replacement: bool = False,
     entities_to_replace: list[str] = ["PERSON", "GPE", "NORP", "LANGUAGE", "LOC"]
 ) -> list[str]:
     """
-    =============================================================
-    == Read & Prepare Text Data (GiTHUB.com/HooM4N/CausalLSTM) ==
-    =============================================================
+    =====================================================
+    == Text Data Pipeline (GiTHUB.com/HooM4N/WordFlow) ==
+    =====================================================
+    Loads text data from a single .txt file or directory containing multiple .txt files,
+    processes each chunk, and returns a filtered list of cleaned texts.
+    
     Args:
         - data_path (str): 
-            Path to the input `.txt` file.
+            Path to the input .txt file. If a directory path is provided, all '.txt' files
+            within that directory will be read and concatenated together. The resulting list
+            of text chunks (from all files) will be returned.
         
         - min_token_thresh (int): 
             Minimum token threshold; chunks with fewer tokens are discarded.
@@ -29,7 +34,10 @@ def get_data(
         
         - preprocess (bool): 
             Whether to apply the `text_cleaner` function to each chunk.
-        
+
+        - preprocess_kwargs (dict): 
+            Arguments to pass preprocessor. See src.preprocess.text_preprocess for arg names.
+            
         - entity_replacement (bool):
             Whether to replace named entities using spaCy 
             (default model: `en_core_web_sm`).
@@ -49,15 +57,20 @@ def get_data(
             if entity_replacement:
                 doc = replace_entities(doc, entities_to_replace)
             if preprocess:
-                doc = text_cleaner(doc)
+                if preprocess_kwargs is not None:
+                    doc = text_preprocess(doc, **preprocess_kwargs)
+                else:
+                    doc = text_preprocess(doc)
+                    
                 if len(doc.split()) >= min_token_thresh:
-                    processed.append(f" {doc} <eos> " if add_special_tokens else doc)
+                    processed.append(f"{doc} <eos> " if add_special_tokens else doc)
             else:
-                processed.append(f" {doc} <eos> " if add_special_tokens else doc)
+                processed.append(f"{doc} <eos> " if add_special_tokens else doc)
                 
         print(f"*** file: \"{os.path.basename(data_path)}\" loaded ***")
         summarize_data(processed)
         return processed
+        
     else:
         assert os.path.exists(data_path), "data dir does not exists!"
         files, cat_data = os.listdir(data_path), []
@@ -75,9 +88,9 @@ def train_val_split(
     seed: int = 42
 ) -> tuple[list[str], list[str]]:
     """
-    =====================================================================
-    == Train-Val Data Splitting Utility (GiTHUB.com/HooM4N/CausalLSTM) ==
-    =====================================================================
+    ===================================================================
+    == Train-Val Data Splitting Utility (GiTHUB.com/HooM4N/WordFlow) ==
+    ===================================================================
     """
     if shuffle:
         random.seed(seed)
@@ -89,9 +102,9 @@ def train_val_split(
 
 def summarize_data(data: list[str]) -> None:
     """
-    ===========================================================
-    == Summerize Tokens Count (GiTHUB.com/HooM4N/CausalLSTM) ==
-    ===========================================================
+    =========================================================
+    == Summerize Tokens Count (GiTHUB.com/HooM4N/WordFlow) ==
+    =========================================================
     """
     token_counter = Counter()
 

@@ -1,12 +1,9 @@
-import os
-import json
-import matplotlib
-import matplotlib.pyplot as plt
+import os, json, matplotlib, matplotlib.pyplot as plt
 import torch
 
 from .config import read_config, resolve_device
 from .tokenizer import Tokenizer
-from .model import CausalLSTM
+from .model import WordFlowModel
 
 def plot_training_logs(
     train_logs: dict[str, list[float]], 
@@ -45,9 +42,9 @@ def plot_training_logs(
 
 def load_run(run_path:str):
     """
-    =============================================================
-    == Load Given Run Artifacts (GiTHUB.com/HooM4N/CausalLSTM) ==
-    =============================================================
+    ==================================================
+    == Load Given Run Artifacts (GiTHUB.com/HooM4N) ==
+    ==================================================
     - Returns: model, tokenizer, config, device, training_logs
     """
     device = resolve_device()
@@ -56,11 +53,11 @@ def load_run(run_path:str):
         config = read_config(os.path.join(run_path, "config.yaml"))
 
         tokenizer = Tokenizer().load_from_file(os.path.join(run_path, "tokenizer.json"))
-        model = CausalLSTM(
+        model = WordFlowModel(
             tokenizer.get_vocab_size(), **config["model_params"]
         ).to(device)
         model.load_state_dict(
-            torch.load(os.path.join(run_path, "CausalLSTM_ckpnt.pt"), 
+            torch.load(os.path.join(run_path, "WordFlow_ckpnt.pt"), 
                        map_location=device, 
                        weights_only=True)
         )
@@ -72,4 +69,4 @@ def load_run(run_path:str):
         return None
 
 def list_runs(models_dir: str = "models/") -> list[str]:
-    return [os.path.join(models_dir, d) for d in os.listdir(models_dir) if d.startswith("CausalLSTM_run")]
+    return [os.path.join(models_dir, d) for d in os.listdir(models_dir) if d.startswith("WordFlow_run")]

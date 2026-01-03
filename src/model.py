@@ -2,11 +2,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-class CausalLSTM(nn.Module):
+class WordFlowModel(nn.Module):
     """
-    =====================================================
-    == CausalLSTM Model (GiTHUB.com/HooM4N/CausalLSTM) ==
-    =====================================================
+    =================================================
+    == WordFlow Model (GiTHUB.com/HooM4N/WordFlow) ==
+    =================================================
     - Embedding–classification head with weight tying
     - Linear projection added if embedding_dim != hidden_dim
     - Dropout applied to embeddings, LSTM outputs, and projection
@@ -15,7 +15,7 @@ class CausalLSTM(nn.Module):
     def __init__(
         self, 
         vocab_size: int, 
-        rnn_type: str = "LSTM",
+        rnn_type: str = "GRU",
         embedding_dim: int = 400, 
         hidden_dim: int = 768, 
         num_layers: int = 2,
