@@ -7,6 +7,8 @@ def get_data(
     data_path: str, 
     min_token_thresh: int = 15, 
     chunk_separator: str = "\n\n",
+    shuffle: bool = False,
+    random_seed: int = 1212,
     preprocess: bool = True,
     preprocess_kwargs: dict = None,
     add_special_tokens: bool = True,
@@ -68,6 +70,11 @@ def get_data(
                 processed.append(f"{doc} <eos> " if add_special_tokens else doc)
                 
         print(f"*** file: \"{os.path.basename(data_path)}\" loaded ***")
+        
+        if shuffle:
+            random.seed(random_seed)
+            random.shuffle(processed)
+            
         summarize_data(processed)
         return processed
         

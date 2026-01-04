@@ -78,7 +78,10 @@ def predict_next_word(
     tkns = ["<unk>", "<eos>"]
     unk_id, eos_id = [tokenizer.token_to_id(t) for t in tkns]
 
-    context = text_preprocess(context, **preprocess_kwargs)
+    if preprocess_kwargs is not None:
+        context = text_preprocess(context, **preprocess_kwargs)
+    else:
+        context = text_preprocess(context)
     context_ids = tokenizer.encode(context)
     input_ = torch.tensor(context_ids, dtype=torch.long).reshape(1,-1).to(device)
     output, _ = model(input_, hidden) 
