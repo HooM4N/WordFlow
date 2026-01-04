@@ -32,15 +32,17 @@ def train(config):
     #=======================#
     #     Configuration     #
     #=======================#
-    #validate_config(config)
+    # validate_config(config)
     device = resolve_device(config["use_accelerator"])
     ensure_dirs(config)
+    
     #======================#
     #     Prepare Data     #
     #======================#
     train_corpus = get_data(
         config["train_data_path"],
-        **config["get_data_params"]
+        **config["get_data_params"],
+        random_seed = config["seed"],
     )
     evaluate = False
     

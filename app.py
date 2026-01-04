@@ -126,9 +126,9 @@ def get_app():
         with gr.Tab("Text Generation"):
             with gr.Row(equal_height=True):
                 with gr.Column(scale=1):
-                    init_word = gr.Textbox(value = "<eos>", label="Initial word", placeholder="e.g., well")
-                    temperature = gr.Slider(label="Temperature", minimum=0.4, maximum=1.5, value=0.75, step=0.05)
-                    max_new_tokens = gr.Slider(label="Max new tokens", minimum=5, maximum=200, value=50, step=1)
+                    init_word = gr.Textbox(value ="<eos>", label="Initial word", placeholder="e.g., <eos>")
+                    temperature = gr.Slider(label="Temperature", minimum=0.4, maximum=1.5, value=0.7, step=0.05)
+                    max_new_tokens = gr.Slider(label="Max new tokens", minimum=5, maximum=200, value=100, step=1)
                     gen_btn = gr.Button("Generate", variant="primary")
                 with gr.Column(scale=2):
                     gen_output = gr.Textbox(label="Generated Text", interactive=False, lines=5)
