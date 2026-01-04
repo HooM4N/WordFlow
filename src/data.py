@@ -65,9 +65,9 @@ def get_data(
                     doc = text_preprocess(doc)
                     
                 if len(doc.split()) >= min_token_thresh:
-                    processed.append(f"{doc} <eos> " if add_special_tokens else doc)
+                    processed.append(f"<bos> {doc} <eos>" if add_special_tokens else doc)
             else:
-                processed.append(f"{doc} <eos> " if add_special_tokens else doc)
+                processed.append(f"<bos> {doc} <eos>" if add_special_tokens else doc)
                 
         print(f"*** file: \"{os.path.basename(data_path)}\" loaded ***")
         
@@ -124,7 +124,3 @@ def summarize_data(data: list[str]) -> None:
         f"{len(token_counter):,} unique tokens | "
         f"{len(data):,} chunks | ***"
     )
-
-def flatten(xss: list[list[str]]) -> list[str]:
-    """ flattens nested lists """
-    return [x for xs in xss for x in xs]

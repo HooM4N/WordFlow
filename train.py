@@ -3,9 +3,11 @@ from argparse import ArgumentParser
 from torch.utils.data import DataLoader
 
 from src.config import resolve_device, read_config, ensure_dirs, model_summary
-from src.data import get_data, train_val_split, summarize_data, flatten
+from src.data import get_data, train_val_split, summarize_data
 from src.tokenizer import Tokenizer
-from src.dataset import StatefullDataset, StatelessDataset
+from src.dataset import (
+TruncatedBPTTDataset, SlidingWindowDataset, VariableLengthDataset, varlen_collate, sliding_collate, bptt_collate
+)
 from src.model import WordFlowModel, detach_hidden
 from src.pretrained_embeddings import get_glove_embeddings
 from src.trainer import trainer
@@ -57,7 +59,7 @@ def train(config):
             config["seed"]
         )
         evaluate = True
-        
+
     #======================#
     #     Tokenization     #
     #======================#        
@@ -75,41 +77,49 @@ def train(config):
     #     Prepare DataLoader     #
     #============================#
 
-    if config["training_mode"] == "statefull":
-        def identity_collate(batch): 
-            return batch[0]
-            
-        train_ds = StatefullDataset(
-            flatten(train_ids), config["batch_size"], config["seq_len"]
+    if config["training_mode"] == "bptt":
+        train_ds = TruncatedBPTTDataset(
+            train_ids, config["batch_size"], config["seq_len"]
         )
-        train_ds.get_info()
+        train_ds.print_info()
         train_loader = DataLoader(
-            train_ds, batch_size=1, shuffle=False, pin_memory = True, collate_fn = identity_collate
+            train_ds, batch_size=1, shuffle=False, pin_memory = True, collate_fn = bptt_collate
         )
         if evaluate:
-            val_ds = StatefullDataset(
-                flatten(val_ids), config["batch_size"], config["seq_len"]
+            val_ds = TruncatedBPTTDataset(
+                val_ids, config["batch_size"], config["seq_len"]
             )
             val_loader = DataLoader(
-                val_ds, batch_size=1, shuffle=False, pin_memory = True, collate_fn = identity_collate
+                val_ds, batch_size=1, shuffle=False, pin_memory = True, collate_fn = bptt_collate
             )
                 
-    elif config["training_mode"] == "stateless":
-        train_ds = StatelessDataset(
+    elif config["training_mode"] == "sliding":
+        train_ds = SlidingWindowDataset(
             train_ids, config["seq_len"], min(config["min_seq_len"], config["seq_len"])
         )
         print(f"*** {len(train_ds):,} training samples created ***")
         train_loader = DataLoader(
-            train_ds, batch_size=config["batch_size"], shuffle=True, pin_memory = True
+            train_ds, batch_size=config["batch_size"], shuffle=True, pin_memory = True, collate_fn = sliding_collate
         )
         if evaluate:
-            val_ds = StatelessDataset(
+            val_ds = SlidingWindowDataset(
                 val_ids, config["seq_len"], config["min_seq_len"]
             )
             val_loader = DataLoader(
-                val_ds, batch_size=config["batch_size"], shuffle=False, pin_memory = True
+                val_ds, batch_size=config["batch_size"], shuffle=False, pin_memory = True, collate_fn = sliding_collate
             )
 
+    elif config["training_mode"] == "varlen":
+        train_ds = VariableLengthDataset(train_ids)
+        train_loader = DataLoader(
+            train_ds, batch_size=config["batch_size"], shuffle=True,pin_memory = True, collate_fn = varlen_collate
+        )
+        print(f"*** {len(train_ds):,} training samples created ***")
+        if evaluate:
+            val_ds = VariableLengthDataset(val_ids)
+            val_loader = DataLoader(
+                val_ds, batch_size=config["batch_size"], shuffle=False, pin_memory = True, collate_fn = varlen_collate
+            )
     #===========================#
     #     Instantiate Model     #
     #===========================#
@@ -135,7 +145,9 @@ def train(config):
     #=======================#
     #     Training Loop     #
     #=======================#
-    loss_fn = torch.nn.CrossEntropyLoss()
+    loss_fn = torch.nn.CrossEntropyLoss(
+        ignore_index = tokenizer.token_to_id("<pad>")
+    )
     optimizer = torch.optim.NAdam(
         model.parameters(), **config["optimizer_params"]
     )

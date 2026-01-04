@@ -1,16 +1,13 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 class WordFlowModel(nn.Module):
     """
     =================================================
     == WordFlow Model (GiTHUB.com/HooM4N/WordFlow) ==
     =================================================
-    - Embedding–classification head with weight tying
-    - Linear projection added if embedding_dim != hidden_dim
-    - Dropout applied to embeddings, LSTM outputs, and projection
-    - Weight initialization follows "Regularizing and Optimizing LSTM Language Models"
     """
     def __init__(
         self, 
@@ -21,11 +18,12 @@ class WordFlowModel(nn.Module):
         num_layers: int = 2,
         rnn_dropout_p: float = 0.25, 
         emb_dropout_p: float = 0.2, 
-        out_dropout_p: float = 0.4,
+        out_dropout_p: float = 0.35,
         tie_weights: bool = True,
         pretrained_embedding_matrix: torch.Tensor = None,
         freeze_pretrained_embeddings: bool = True,
         proj_nonlinearity: bool = False,
+        padding_idx: int = 0,
     ):
         super().__init__()
         assert rnn_type in ["LSTM", "GRU"]
@@ -40,27 +38,31 @@ class WordFlowModel(nn.Module):
             assert pretrained_embedding_matrix.size(0) == vocab_size
             self.embedding = nn.Embedding.from_pretrained(
                 pretrained_embedding_matrix, 
-                freeze = freeze_pretrained_embeddings
+                freeze = freeze_pretrained_embeddings, 
+                padding_idx = padding_idx
             )
         else:
-            self.embedding = nn.Embedding(vocab_size, embedding_dim)
+            self.embedding = nn.Embedding(
+                vocab_size, embedding_dim, padding_idx
+            )
             
         self.embedding_dim = self.embedding.embedding_dim
         self.emb_dropout = nn.Dropout(emb_dropout_p)
+        
         self.rnn = getattr(nn, rnn_type)(
             self.embedding_dim, hidden_dim, num_layers, batch_first=True, dropout = rnn_dropout_p
         )
         self.out_dropout = nn.Dropout(out_dropout_p)
-        self.fc = nn.Linear(embedding_dim, vocab_size)
 
-        self.use_proj = False
-        
-        if tie_weights:
-            self.fc.weight = self.embedding.weight
-            self.use_proj = True if hidden_dim != embedding_dim else False
-        
-        if self.use_proj:
-            self.proj = nn.Linear(hidden_dim, embedding_dim)
+        if tie_weights: 
+            self.fc = nn.Linear(embedding_dim, vocab_size, bias=False) 
+            self.fc.weight = self.embedding.weight 
+            self.use_proj = hidden_dim != embedding_dim 
+            if self.use_proj: 
+                self.proj = nn.Linear(hidden_dim, embedding_dim) 
+        else: 
+            self.fc = nn.Linear(hidden_dim, vocab_size)
+            self.use_proj = False
             
         self.init_weights()
 
@@ -73,10 +75,10 @@ class WordFlowModel(nn.Module):
             
         if not self.tie_weights:
             nn.init.uniform_(self.fc.weight, -initrange, initrange)
+            nn.init.zeros_(self.fc.bias)
             
         nn.init.uniform_(self.embedding.weight, -initrange, initrange)
-        nn.init.zeros_(self.fc.bias)
-
+        
     def init_hidden(self, batch_size: int) -> tuple[torch.Tensor, torch.Tensor]:
         w = next(self.parameters())
         if self.rnn_type == "LSTM":
@@ -87,23 +89,45 @@ class WordFlowModel(nn.Module):
 
     def forward(
         self, 
-        x: torch.Tensor, 
-        hidden: tuple[torch.Tensor, torch.Tensor] = None
-    ) -> tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor]]:
-        
+        x: torch.Tensor, # (N, L)
+        hidden: torch.Tensor | tuple[torch.Tensor, torch.Tensor] = None, # GRU: (num_layers, N, H) 
+        padding_mask: torch.Tensor = None, # (N, L) , 0 -> padding tokens & 1 -> valid tokens 
+    ) -> tuple[torch.Tensor, torch.Tensor | tuple[torch.Tensor, torch.Tensor]]:
+
+        # Embedding
         x = self.embedding(x) # (N, L, E)
         x = self.emb_dropout(x)
-        x, hidden = self.rnn(x, hidden) # x: (N, L, H), hidden (LSTM): ((num_layers, N, H), (num_layers, N, H)) 
-        x = self.out_dropout(x)
+
+        # RNN
+        if padding_mask is not None:
+            x = pack_padded_sequence(
+                x, padding_mask.sum(dim=1).cpu(), batch_first=True, enforce_sorted=False
+            )
+        x, hidden = self.rnn(x, hidden) # x (packed if padded): (N, L, H), hidden (GRU): (num_layers, N, H)
+        if padding_mask is not None:
+            x, _ =  pad_packed_sequence(
+                x, batch_first=True, total_length=padding_mask.size(1)
+            )
+        
+        # Projection
         if self.use_proj:
             x = self.proj(x) # (N, L, E)
             if self.proj_nonlinearity:
                 x = F.gelu(x)
-            x = self.out_dropout(x)
-        return self.fc(x).permute(0, 2, 1), hidden # outpus: (N, vocab_size, L), hidden (LSTM): ((num_layers, N, H), (num_layers, N, H))
+            
+        # Classification Head
+        x = self.out_dropout(x)
+        return (
+            self.fc(x).permute(0, 2, 1), # (N, vocab_size, L)
+            hidden # (GRU): (num_layers, N, H)
+        )
 
-def detach_hidden(hidden: tuple[torch.Tensor, torch.Tensor]) -> tuple[torch.Tensor, torch.Tensor]:
-    """Detach hidden states from the current graph."""
+def detach_hidden(
+    hidden: tuple[torch.Tensor, torch.Tensor]
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """
+    Detach hidden states from the current graph
+    """
     if isinstance(hidden, torch.Tensor):
         return hidden.detach()
     return tuple(detach_hidden(h) for h in hidden)

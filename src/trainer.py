@@ -59,8 +59,8 @@ def trainer(
             total_loss = 0.0
             hidden = model.init_hidden(config["batch_size"])
 
-            for X,Y in tqdm(train_loader, desc=f"Epoch {epoch+1}/{config["n_epochs"]}"):
-                X, Y = X.to(device), Y.to(device)
+            for X,Y, padding_mask in tqdm(train_loader, desc=f"Epoch {epoch+1}/{config["n_epochs"]}"):
+                X, Y = X.to(device), Y.to(device), padding_mask.to(device)
                 optimizer.zero_grad(set_to_none=True)
                 hidden = detach_hidden(hidden)
                 with torch.autocast(
@@ -68,7 +68,8 @@ def trainer(
                 ):
                     logits, hidden = model(
                         X,
-                        hidden if config["training_mode"] == "statefull" else None
+                        hidden if config["training_mode"] == "bptt" else None,
+                        padding_mask,
                     )
                     loss = loss_fn(logits, Y)
                 total_loss += loss.item()
@@ -191,7 +192,8 @@ def evaluate(
         ):
             logits, hidden = model(
                 X,
-                hidden if config["training_mode"] == "statefull" else None
+                hidden if config["training_mode"] == "bptt" else None,
+                padding_mask,
             )
             total_loss += loss_fn(logits, Y).item()
     return total_loss / len(eval_loader)

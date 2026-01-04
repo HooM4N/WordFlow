@@ -1,23 +1,25 @@
 import torch
 from torch.utils.data import Dataset
 
-class StatefullDataset(Dataset):
+#=========================#
+#     Dataset Classes     #
+#=========================#
+
+### Truncated BPTT Dataset ###
+
+class TruncatedBPTTDataset(Dataset):
     """
     =========================================================
     == Truncated BPTT Dataset (GiTHUB.com/HooM4N/WordFlow) ==
     =========================================================
-    - Takes full corpus token IDs as a list and converts to a torch Tensor.
-    - Splits full sequence into batch_size streams, with hidden states carried across streams.
-    - __len__ returns the number of batches.
-    - __getitem__ returns X: (batch_size, seq_len) and Y: one timestep shifted to the right.
     """
     def __init__(
         self, 
-        corpus_ids: list, 
-        batch_size: int =256, 
+        corpus_ids: list[int], 
+        batch_size: int = 256, 
         seq_len: int = 128
     ):
-        full_seq = torch.tensor(corpus_ids, dtype=torch.long)
+        full_seq = torch.tensor(flatten(corpus_ids), dtype=torch.long)
         # trim to multiple of batch_size
         stream_len = full_seq.size(0) // batch_size
         full_seq = full_seq[:stream_len * batch_size]
@@ -29,30 +31,33 @@ class StatefullDataset(Dataset):
         self.stream_len = full_seq.size(1) - 1
 
     def __len__(self):
-        """Returns number of batches"""
-        return self.stream_len // self.seq_len
+        return self.stream_len // self.seq_len # number of batches
 
-    def __getitem__(self, idx):
+    def __getitem__(
+        self, idx: int
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         start = idx * self.seq_len
         end = start + self.seq_len
-        X = self.full_seq[:, start:end]
-        Y = self.full_seq[:, start+1:end+1]
-        return X, Y
+        return (
+            self.full_seq[:, start:end], # (N,L)
+            self.full_seq[:, start+1:end+1] # (N,L)
+        )
 
-    def get_info(self):
-        print(f"*** batch size: {self.batch_size} | sequence len: {self.seq_len} ***")
-        print(f"*** stream lenght: {self.stream_len} | number of batches: {self.__len__()} ***")
+    def print_info(self):
+        print(f"*** Batch Size: {self.batch_size} | Sequence Len: {self.seq_len} ***")
+        print(f"*** Stream Lenght: {self.stream_len} | Number of Batches: {self.__len__()} ***")
 
+### Overlapping Sequences Dataset ###
 
-class StatelessDataset(Dataset):
+class SlidingWindowDataset(Dataset):
     """
-    ============================================================================
-    == Stateless LSTM Language Modeling Dataset (GiTHUB.com/HoomM4N/WordFlow) ==
-    ============================================================================
+    ==========================================================
+    == Sliding Window Dataset (GiTHUB.com/HoomM4N/WordFlow) ==
+    ==========================================================
     """
     def __init__(
         self, 
-        corpus_ids: list, 
+        corpus_ids: list[int], 
         seq_len: int = 32, 
         min_seq_len: int = 20,
     ):
@@ -68,7 +73,7 @@ class StatelessDataset(Dataset):
             if len(doc) < self.min_seq_len:
                 continue
 
-            # sliding window
+            # Sliding window
             for i in range(len(doc) - self.seq_len):
                 x = doc[i : i+self.seq_len]
                 y = doc[i+1 : i+1+self.seq_len]
@@ -82,5 +87,83 @@ class StatelessDataset(Dataset):
     def __len__(self):
         return len(self.inputs)
 
-    def __getitem__(self, idx: int) -> tuple:
-        return self.inputs[idx], self.targets[idx]
+    def __getitem__(
+        self, idx: int
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        return (
+            self.inputs[idx], # (L,)
+            self.targets[idx] # (L,)
+        )
+
+### Variable Length Sequences Dataset ###
+
+class VariableLengthDataset(Dataset):
+    """
+    =====================================================================
+    == Variable Length Sequences Dataset (GiTHUB.com/HoomM4N/WordFlow) ==
+    =====================================================================
+    """
+    def __init__(
+        self, corpus_ids: list[int]
+    ):
+        self.corpus_ids = corpus_ids
+
+    def __len__(self):
+        return len(self.corpus_ids)
+
+    def __getitem__(
+        self, idx:int
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        return (
+            torch.tensor(self.corpus_ids[idx][:-1], dtype=torch.long), # (L,)
+            torch.tensor(self.corpus_ids[idx][1:], dtype=torch.long), # (L,)
+        )
+
+#===========================#
+#     Collate Functions     #
+#===========================#
+
+def varlen_collate(
+    batch: list[tuple[torch.Tensor, torch.Tensor]], 
+    pad_token_id: int = 0
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """
+    ==================================================================================
+    == Collate Function for Variable Length Sequences (GiTHUB.com/HoomM4N/WordFlow) ==
+    ==================================================================================
+    """
+    lengths = [len(x) for x, _ in batch]
+    max_len = max(lengths)
+
+    padded_X = torch.full((len(batch), max_len), pad_token_id, dtype=torch.long)
+    padded_Y = torch.full((len(batch), max_len), pad_token_id, dtype=torch.long)
+
+    for i, (x,y) in enumerate(batch):
+        padded_X[i, :len(x)] = x
+        padded_Y[i, :len(y)] = y
+
+    padding_mask = torch.not_equal(padded_X, pad_token_id).long() # 1 for valid tokens, 0 for paddings
+    
+    return padded_X, padded_Y, padding_mask
+
+def sliding_collate(
+    batch: list[tuple[torch.Tensor, torch.Tensor]]
+) -> tuple[torch.Tensor, torch.Tensor, None]: 
+    Xs, Ys = zip(*batch)
+    return torch.stack(Xs, 0), torch.stack(Ys, 0), None
+
+def bptt_collate(
+    batch: list[tuple[torch.Tensor, torch.Tensor]]
+) -> tuple[torch.Tensor, torch.Tensor, None]: 
+    X, Y = batch[0]
+    return X, Y, None
+    
+#===============#
+#     Utils     #
+#===============#
+
+def flatten(xss: list[list[str]]) -> list[str]:
+    """
+    Flattens nested lists
+    """
+    return [x for xs in xss for x in xs]
