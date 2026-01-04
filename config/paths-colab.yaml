@@ -1,5 +1,0 @@
-config_path: content/drive/MyDrive/ML-Projects/CausalLSTM/config/config.yaml
-data_name: sherlock_holmes
-data_dir: content/drive/MyDrive/ML-Projects/CausalLSTM/data/sherlock_holmes/
-models_dir: content/drive/MyDrive/ML-Projects/CausalLSTM/models/
-checkpoint_path: null
