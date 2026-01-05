@@ -59,8 +59,9 @@ def trainer(
             total_loss = 0.0
             hidden = model.init_hidden(config["batch_size"])
 
-            for X,Y, padding_mask in tqdm(train_loader, desc=f"Epoch {epoch+1}/{config["n_epochs"]}"):
-                X, Y = X.to(device), Y.to(device), padding_mask.to(device)
+            for X, Y, padding_mask in tqdm(train_loader, desc=f"Epoch {epoch+1}/{config["n_epochs"]}"):
+                X, Y = X.to(device), Y.to(device)
+                padding_mask = padding_mask.to(device) if padding_mask is not None else None
                 optimizer.zero_grad(set_to_none=True)
                 hidden = detach_hidden(hidden)
                 with torch.autocast(
@@ -184,8 +185,9 @@ def evaluate(
     total_loss = 0.0
     hidden = model.init_hidden(config["batch_size"])
     
-    for X, Y in tqdm(eval_loader, disable = disable_progress_bar):
+    for X, Y, padding_mask in tqdm(eval_loader, disable = disable_progress_bar):
         X, Y = X.to(device), Y.to(device)
+        padding_mask = padding_mask.to(device) if padding_mask is not None else None
         hidden = detach_hidden(hidden)
         with torch.autocast(
             device_type=device.type, dtype=torch.float16, enabled=config["enable_mixed_precision"]

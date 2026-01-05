@@ -11,35 +11,34 @@ glove_embeddings_path: null
 #     GENERAL SETTINGS     #
 #==========================#
 seed: 212
-training_mode: bptt # or sliding / varlen
+training_mode: sliding # [ sliding / varlen / bptt ]
 use_accelerator: true
 
 #=======================#
 #     DATA SETTINGS     #
 #=======================#
-seq_len: 90
+seq_len: 128
 min_seq_len: 20
-max_vocab_size: 30000
+max_vocab_size: 25000
 
 get_data_params:
   min_token_thresh: 15
   chunk_separator: "\n\n"
   entity_replacement: false
   add_special_tokens: true
-  shuffle: true
+  shuffle: false
   preprocess: true
-  
-## Preprocessing params ##
+  # Preprocessing params
   preprocess_kwargs:
    lowercase: true
    remove_parenthesized_content: false
    punctuations: keep 
    essential_punctuations: [".", "'", ","]
-   collapse_multiple_dots: false
-   remove_non_ascii: false
+   collapse_multiple_dots: true
+   remove_non_ascii: true
    bucketize_numbers: true
  
-val_split_enable: false
+do_val_split: true
 val_split_ratio: 0.1
 val_split_shuffle: true
 
@@ -48,7 +47,7 @@ tokenizer_lowercase: true
 #=========================#
 #     TRAINING PARAMS     #
 #=========================#
-n_epochs: 60
+n_epochs: 25
 batch_size: 128
 enable_mixed_precision: true
 

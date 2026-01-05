@@ -63,7 +63,7 @@ class SlidingWindowDataset(Dataset):
     ):
 
         self.seq_len = seq_len
-        self.min_seq_len = min_seq_len
+        self.min_seq_len = min(min_seq_len, seq_len)
         self._precompute_samples(corpus_ids)
 
     def _precompute_samples(self, corpus_ids: list):
@@ -94,6 +94,9 @@ class SlidingWindowDataset(Dataset):
             self.inputs[idx], # (L,)
             self.targets[idx] # (L,)
         )
+    
+    def print_info(self):
+        print(f"*** Number of Samples: {self.__len__()} | Sequence Lenght: {self.seq_len} ***")
 
 ### Variable Length Sequences Dataset ###
 
@@ -104,21 +107,33 @@ class VariableLengthDataset(Dataset):
     =====================================================================
     """
     def __init__(
-        self, corpus_ids: list[int]
+        self, 
+        corpus_ids: list[int],
+        truncation: bool = True,
+        seq_len: int = 32,
+        
     ):
         self.corpus_ids = corpus_ids
-
+        self.truncation = truncation
+        self.seq_len = seq_len
+        
     def __len__(self):
         return len(self.corpus_ids)
 
     def __getitem__(
         self, idx:int
     ) -> tuple[torch.Tensor, torch.Tensor]:
+        doc = self.corpus_ids[idx]
+        doc = doc[:self.seq_len+1] if self.truncation else doc
+        
         return (
-            torch.tensor(self.corpus_ids[idx][:-1], dtype=torch.long), # (L,)
-            torch.tensor(self.corpus_ids[idx][1:], dtype=torch.long), # (L,)
+            torch.tensor(doc[:-1], dtype=torch.long), # (L,)
+            torch.tensor(doc[1:], dtype=torch.long), # (L,)
         )
 
+    def print_info(self):
+        print(f"*** Number of Samples: {self.__len__()} ***")
+        
 #===========================#
 #     Collate Functions     #
 #===========================#
@@ -133,10 +148,9 @@ def varlen_collate(
     ==================================================================================
     """
     lengths = [len(x) for x, _ in batch]
-    max_len = max(lengths)
 
-    padded_X = torch.full((len(batch), max_len), pad_token_id, dtype=torch.long)
-    padded_Y = torch.full((len(batch), max_len), pad_token_id, dtype=torch.long)
+    padded_X = torch.full((len(batch), max(lengths)), pad_token_id, dtype=torch.long)
+    padded_Y = torch.full((len(batch), max(lengths)), pad_token_id, dtype=torch.long)
 
     for i, (x,y) in enumerate(batch):
         padded_X[i, :len(x)] = x

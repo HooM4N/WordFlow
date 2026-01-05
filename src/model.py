@@ -79,7 +79,9 @@ class WordFlowModel(nn.Module):
             
         nn.init.uniform_(self.embedding.weight, -initrange, initrange)
         
-    def init_hidden(self, batch_size: int) -> tuple[torch.Tensor, torch.Tensor]:
+    def init_hidden(
+        self, batch_size: int
+    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
         w = next(self.parameters())
         if self.rnn_type == "LSTM":
             return (w.new_zeros((self.num_layers, batch_size, self.hidden_dim)),
@@ -124,7 +126,7 @@ class WordFlowModel(nn.Module):
 
 def detach_hidden(
     hidden: tuple[torch.Tensor, torch.Tensor]
-) -> tuple[torch.Tensor, torch.Tensor]:
+) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
     """
     Detach hidden states from the current graph
     """

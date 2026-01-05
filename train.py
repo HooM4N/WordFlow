@@ -2,12 +2,10 @@ import os, torch
 from argparse import ArgumentParser
 from torch.utils.data import DataLoader
 
+import src.dataset as wf_dataset 
 from src.config import resolve_device, read_config, ensure_dirs, model_summary
-from src.data import get_data, train_val_split, summarize_data
+from src.data import get_data, train_val_split
 from src.tokenizer import Tokenizer
-from src.dataset import (
-TruncatedBPTTDataset, SlidingWindowDataset, VariableLengthDataset, varlen_collate, sliding_collate, bptt_collate
-)
 from src.model import WordFlowModel, detach_hidden
 from src.pretrained_embeddings import get_glove_embeddings
 from src.trainer import trainer
@@ -16,8 +14,9 @@ def get_args():
     parser = ArgumentParser(description="*** WordFlow: Word-Level Language Modeling with RNNs ***")
     parser.add_argument("--config_path", type=str, default="config/config.yaml",
                         help="path to config file (yaml)")
-    parser.add_argument("--training_mode", choices=["statefull", "stateless"], default=None,
-                        help="train with 'statefull' (Truncated BPTT) or 'stateless' (overlapping sequence windows)")
+    parser.add_argument("--training_mode", choices=["bptt", "sliding", "varlen"], default=None,
+                        help=("training modes 'bptt' (Truncated BPTT), 'sliding'" 
+                              "(Sliding Sequence Windows) or 'varlen' (Variable Lenght Sequences)"))
     parser.add_argument("--n_epochs", type=int, default=None,
                         help="number of training epochs")
     parser.add_argument("--batch_size", type=int, default=None,
@@ -51,7 +50,8 @@ def train(config):
     if config["val_data_path"] is not None:
         val_corpus = get_data(config["val_data_path"])
         evaluate = True
-    elif config["val_split_enable"]:
+        
+    elif config["do_val_split"]:
         train_corpus, val_corpus = train_val_split(
             train_corpus, 
             config["val_split_ratio"], 
@@ -59,7 +59,7 @@ def train(config):
             config["seed"]
         )
         evaluate = True
-
+        
     #======================#
     #     Tokenization     #
     #======================#        
@@ -76,53 +76,52 @@ def train(config):
     #============================#
     #     Prepare DataLoader     #
     #============================#
-
-    if config["training_mode"] == "bptt":
-        train_ds = TruncatedBPTTDataset(
-            train_ids, config["batch_size"], config["seq_len"]
+    modes = {
+        "bptt": {
+            "class": "TruncatedBPTTDataset",
+            "args": ["batch_size", "seq_len"],
+            "collate": "bptt_collate"
+            },
+        "sliding": {
+            "class": "SlidingWindowDataset",
+            "args": ["seq_len", "min_seq_len"],
+            "collate": "sliding_collate"
+        },
+        "varlen": {
+            "class": "VariableLengthDataset",
+            "args": ["seq_len"],
+            "collate": "varlen_collate"
+        },
+    }
+    train_ds = getattr(wf_dataset, modes[config["training_mode"]]["class"])(
+        train_ids, **{k:config[k] for k in modes[config["training_mode"]]["args"]}
+    )
+    train_ds.print_info()
+    
+    train_loader = DataLoader(
+        train_ds, 
+        batch_size = 1 if config["training_mode"] == "bptt" else config["batch_size"], 
+        shuffle = False if config["training_mode"] == "bptt" else True,
+        pin_memory = True, 
+        collate_fn = getattr(wf_dataset, modes[config["training_mode"]]["collate"])
+    )
+    
+    if evaluate:
+        val_ds = getattr(wf_dataset, modes[config["training_mode"]]["class"])(
+            val_ids, **{k:config[k] for k in modes[config["training_mode"]]["args"]}
         )
-        train_ds.print_info()
-        train_loader = DataLoader(
-            train_ds, batch_size=1, shuffle=False, pin_memory = True, collate_fn = bptt_collate
+        val_loader = DataLoader(
+            val_ds, 
+            batch_size = 1 if config["training_mode"] == "bptt" else config["batch_size"], 
+            shuffle = False,
+            pin_memory = True, 
+            collate_fn = getattr(wf_dataset, modes[config["training_mode"]]["collate"])
         )
-        if evaluate:
-            val_ds = TruncatedBPTTDataset(
-                val_ids, config["batch_size"], config["seq_len"]
-            )
-            val_loader = DataLoader(
-                val_ds, batch_size=1, shuffle=False, pin_memory = True, collate_fn = bptt_collate
-            )
-                
-    elif config["training_mode"] == "sliding":
-        train_ds = SlidingWindowDataset(
-            train_ids, config["seq_len"], min(config["min_seq_len"], config["seq_len"])
-        )
-        print(f"*** {len(train_ds):,} training samples created ***")
-        train_loader = DataLoader(
-            train_ds, batch_size=config["batch_size"], shuffle=True, pin_memory = True, collate_fn = sliding_collate
-        )
-        if evaluate:
-            val_ds = SlidingWindowDataset(
-                val_ids, config["seq_len"], config["min_seq_len"]
-            )
-            val_loader = DataLoader(
-                val_ds, batch_size=config["batch_size"], shuffle=False, pin_memory = True, collate_fn = sliding_collate
-            )
-
-    elif config["training_mode"] == "varlen":
-        train_ds = VariableLengthDataset(train_ids)
-        train_loader = DataLoader(
-            train_ds, batch_size=config["batch_size"], shuffle=True,pin_memory = True, collate_fn = varlen_collate
-        )
-        print(f"*** {len(train_ds):,} training samples created ***")
-        if evaluate:
-            val_ds = VariableLengthDataset(val_ids)
-            val_loader = DataLoader(
-                val_ds, batch_size=config["batch_size"], shuffle=False, pin_memory = True, collate_fn = varlen_collate
-            )
+        
     #===========================#
     #     Instantiate Model     #
     #===========================#
+    
     if config["use_glove_embeddings"]:
         try:
             print(f"*** loading pretrained GloVe word embeddings ***")
