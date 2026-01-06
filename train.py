@@ -1,8 +1,10 @@
-import os, torch
+import os
 from argparse import ArgumentParser
+
+import torch
 from torch.utils.data import DataLoader
 
-import src.dataset as wf_dataset 
+import src.dataset as wf_dataset
 from src.config import resolve_device, read_config, ensure_dirs, model_summary
 from src.data import get_data, train_val_split
 from src.tokenizer import Tokenizer
