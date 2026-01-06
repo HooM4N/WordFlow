@@ -5,11 +5,10 @@ simple_stories_path = "/mnt/d/SimpleStories/"
 
 save_path = "data/simple_stories_filtered.txt"
     
-word_count_range = (120,160)
-# styles = ["lighthearted", "adventurous", "fable-like", "modern", "classic",
-#               "playful", "whimsical", "minimalist", "heartwarming", "romantic"]
-reading_ease = 85
-init_word_types = ["adverb", "noun"]
+word_count_range = (80,160)
+styles = ["lighthearted", "classic", "minimalist", "modern"]
+reading_ease = 81
+init_word_types = ["adverb"]
 
 def sampling_mask(example):
     low, high = word_count_range
