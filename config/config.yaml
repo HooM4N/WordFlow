@@ -1,7 +1,7 @@
 #=====================#
 #     PATHS SETUP     #
 #=====================#
-train_data_path: data/science_of_getting_rich.txt
+train_data_path: data/simple_stories_filtered.txt
 val_data_path: null
 models_dir: models/
 checkpoint_path: null
@@ -11,13 +11,13 @@ glove_embeddings_path: null
 #     GENERAL SETTINGS     #
 #==========================#
 seed: 212
-training_mode: sliding # [ sliding / varlen / bptt ]
+training_mode: varlen # [ sliding / varlen / bptt ]
 use_accelerator: true
 
 #=======================#
 #     DATA SETTINGS     #
 #=======================#
-seq_len: 128
+seq_len: 170
 min_seq_len: 20
 max_vocab_size: 25000
 
@@ -26,7 +26,7 @@ get_data_params:
   chunk_separator: "\n\n"
   entity_replacement: false
   add_special_tokens: true
-  shuffle: false
+  shuffle: true
   preprocess: true
   # Preprocessing params
   preprocess_kwargs:
@@ -34,7 +34,7 @@ get_data_params:
    remove_parenthesized_content: false
    punctuations: keep 
    essential_punctuations: [".", "'", ","]
-   collapse_multiple_dots: true
+   collapse_multiple_dots: false
    remove_non_ascii: true
    bucketize_numbers: true
  
@@ -47,13 +47,13 @@ tokenizer_lowercase: true
 #=========================#
 #     TRAINING PARAMS     #
 #=========================#
-n_epochs: 25
+n_epochs: 60
 batch_size: 128
 enable_mixed_precision: true
 
 early_stopping_epsilon: 0.0008
 early_stopping_patience: 4
-grad_clip_norm: 0.5
+grad_clip_norm: 1.0
 
 #=======================================#
 #     PRETRAINED EMBEDDING SETTINGS     #
@@ -67,13 +67,13 @@ glove_dim: 200
 model_params:
  rnn_type: GRU
  embedding_dim: 300
- hidden_dim: 900
+ hidden_dim: 512
  num_layers: 2
  tie_weights: true
  
  emb_dropout_p: 0.2
  rnn_dropout_p: 0.25
- out_dropout_p: 0.3
+ out_dropout_p: 0.2
  
  proj_nonlinearity: false
  freeze_pretrained_embeddings: true
@@ -83,7 +83,7 @@ model_params:
 #=================================#
 lr_scheduler_params:
  factor: 0.5
- patience: 1
+ patience: 2
  threshold: 0.006
 
 #==========================#
