@@ -18,7 +18,7 @@ def trainer(
     optimizer: torch.optim.Optimizer,
     config: dict[str, int | float | str],
     device: torch.device, 
-    scheduler: torch.optim.lr_scheduler.ReduceLROnPlateau,
+    scheduler: torch.optim.lr_scheduler.LRScheduler,
     detach_hidden: Callable, 
     train_loader: torch.utils.data.DataLoader,
     loss_fn: Callable,
@@ -46,11 +46,11 @@ def trainer(
         
     train_logs = {"train_loss":[] , "val_loss":[] , "val_metric":[], "lr":[], "epoch_time": []}
     model.train()
-    config["enable_mixed_precision"] = True if device.type == "cuda" else False
+    config["enable_mixed_precision"] = device.type == "cuda"
     scaler = torch.amp.GradScaler(enabled = config["enable_mixed_precision"])
     best_loss, es_counter, best_epoch, best_ckpnt_path = float('inf'), 0, None, None
     run_name = datetime.now().strftime("WordFlow_run_%m-%d_%H-%M")
-    print(f"*** Starting run {run_name} for {config["training_mode"]} Language Modeling ***")
+    print(f"*** Starting run {run_name} for {config["training_mode"].upper()} Language Modeling ***")
 
     try: # return best artifacts on training interruption
         for epoch in range(config["n_epochs"]):
@@ -119,11 +119,14 @@ def trainer(
                     "train_loss": train_logs['train_loss'][-1],
                     "val_loss": train_logs['val_loss'][-1] if val_loader else None,
                 }, f)
-            
-            if val_loader is not None:
-                # lr scheduler
-                scheduler.step(val_loss)
 
+            # lr scheduler
+            if val_loader is not None and isinstance(scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
+                scheduler.step(val_loss)
+            else:
+                scheduler.step()
+
+            if val_loader is not None:
                 # track best model
                 if val_loss < best_loss - config["early_stopping_epsilon"]:
                     best_loss = val_loss
@@ -149,6 +152,8 @@ def trainer(
                 torch.load(best_ckpnt_path, map_location=device, weights_only=True)
             )
             print(f"*** Restoring best model from epoch: {best_epoch} ***")
+
+        config["trained_epochs"] = epoch+1
     
         # save artifacts
         run_dir = os.path.join(config["models_dir"], run_name)

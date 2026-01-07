@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 
 import src.dataset as wf_dataset
 from src.config import resolve_device, read_config, ensure_dirs, model_summary
-from src.data import get_data, train_val_split
+from src.data import get_data, train_val_split, summarize_data
 from src.tokenizer import Tokenizer
 from src.model import WordFlowModel, detach_hidden
 from src.pretrained_embeddings import get_glove_embeddings
@@ -48,6 +48,8 @@ def train(config):
         random_seed = config["seed"],
     )
     evaluate = False
+    config["training_data_info"] = summarize_data(train_corpus)
+    print(f"*** {' | '.join(f'{k}: {v:,}' for k,v in config["training_data_info"].items())} ***")
     
     if config["val_data_path"] is not None:
         val_corpus = get_data(config["val_data_path"])
@@ -149,13 +151,18 @@ def train(config):
     loss_fn = torch.nn.CrossEntropyLoss(
         ignore_index = tokenizer.token_to_id("<pad>")
     )
-    optimizer = torch.optim.NAdam(
+    optimizer = torch.optim.AdamW(
         model.parameters(), **config["optimizer_params"]
     )
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, **config["lr_scheduler_params"]
+
+    scheduler = getattr(torch.optim.lr_scheduler, config["lr_scheduler_type"])(
+        optimizer,
+        **{
+            **config["lr_scheduler_params"][config["lr_scheduler_type"]],
+            **({"T_max": config["n_epochs"]} if config["lr_scheduler_type"] == "CosineAnnealingLR" else {})
+        }
     )
-    
+
     model = trainer(
         model, optimizer, config, device, scheduler,
         detach_hidden, train_loader, loss_fn, tokenizer,

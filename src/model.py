@@ -13,12 +13,12 @@ class WordFlowModel(nn.Module):
         self, 
         vocab_size: int, 
         rnn_type: str = "GRU",
-        embedding_dim: int = 400, 
-        hidden_dim: int = 768, 
-        num_layers: int = 2,
+        embedding_dim: int = 300, 
+        hidden_dim: int = 512, 
+        num_layers: int = 1,
         rnn_dropout_p: float = 0.25, 
         emb_dropout_p: float = 0.2, 
-        out_dropout_p: float = 0.35,
+        out_dropout_p: float = 0.2,
         tie_weights: bool = True,
         pretrained_embedding_matrix: torch.Tensor = None,
         freeze_pretrained_embeddings: bool = True,
@@ -50,7 +50,7 @@ class WordFlowModel(nn.Module):
         self.emb_dropout = nn.Dropout(emb_dropout_p)
         
         self.rnn = getattr(nn, rnn_type)(
-            self.embedding_dim, hidden_dim, num_layers, batch_first=True, dropout = rnn_dropout_p
+            self.embedding_dim, hidden_dim, num_layers, batch_first=True, dropout = rnn_dropout_p if num_layers > 1 else 0
         )
         self.out_dropout = nn.Dropout(out_dropout_p)
 

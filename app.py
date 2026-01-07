@@ -87,7 +87,7 @@ def get_app():
             text_size=gr.themes.sizes.text_md,
             primary_hue=gr.themes.colors.rose,
             secondary_hue=gr.themes.colors.yellow,
-            neutral_hue=gr.themes.colors.violet,
+            neutral_hue=gr.themes.colors.blue,
         ),
         title = "WordFlow"
     ) as app:

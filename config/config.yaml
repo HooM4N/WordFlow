@@ -10,8 +10,8 @@ glove_embeddings_path: null
 #==========================#
 #     GENERAL SETTINGS     #
 #==========================#
-seed: 212
-training_mode: varlen # [ sliding / varlen / bptt ]
+seed: 1212
+training_mode: varlen # [ sliding or varlen or bptt ]
 use_accelerator: true
 
 #=======================#
@@ -32,7 +32,7 @@ get_data_params:
   preprocess_kwargs:
    lowercase: true
    remove_parenthesized_content: false
-   punctuations: keep 
+   punctuations: keep # [keep or remove or keep_essential]
    essential_punctuations: [".", "'", ","]
    collapse_multiple_dots: false
    remove_non_ascii: true
@@ -67,8 +67,8 @@ glove_dim: 200
 model_params:
  rnn_type: GRU
  embedding_dim: 300
- hidden_dim: 512
- num_layers: 2
+ hidden_dim: 600
+ num_layers: 1
  tie_weights: true
  
  emb_dropout_p: 0.2
@@ -81,14 +81,18 @@ model_params:
 #=================================#
 #     LEARNING RATE SCHEDULER     #
 #=================================#
-lr_scheduler_params:
- factor: 0.5
- patience: 2
- threshold: 0.006
+lr_scheduler_type: CosineAnnealingLR # [ CosineAnnealingLR or ReduceLROnPlateau]
 
+lr_scheduler_params:
+ ReduceLROnPlateau:
+  factor: 0.5
+  patience: 2
+  threshold: 0.006
+ CosineAnnealingLR:
+  eta_min: 0.00005
 #==========================#
 #     OPTIMIZER PARAMS     #
 #==========================#
 optimizer_params:
-  lr: 0.002
-  weight_decay: 0.00002
+  lr: 0.001
+  weight_decay: 0.01

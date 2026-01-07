@@ -23,10 +23,10 @@ def _num_bucket(m):
 def text_preprocess(
     text: str,
     lowercase: bool = True,
-    remove_parenthesized_content: bool = True,
+    remove_parenthesized_content: bool = False,
     punctuations: str = "keep_essential",
     essential_punctuations: list = [".", "'", ","],
-    collapse_multiple_dots: bool = True,
+    collapse_multiple_dots: bool = False,
     special_artifacts_replacement: dict = {"<br /><br />" : "\n", " @,@ " : "", " @.@ " : ""},
     remove_non_ascii: bool = True,
     bucketize_numbers: bool = True,

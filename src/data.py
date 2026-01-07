@@ -1,6 +1,7 @@
 import os, random
 from collections import Counter
 from tqdm import tqdm
+from typing import Any
 from .preprocess import text_preprocess, replace_entities
 
 def get_data(
@@ -10,8 +11,9 @@ def get_data(
     shuffle: bool = False,
     random_seed: int = 1212,
     preprocess: bool = True,
-    preprocess_kwargs: dict = None,
+    preprocess_kwargs: dict[str, Any] = None,
     add_special_tokens: bool = True,
+    print_data_info: bool = False,
     entity_replacement: bool = False,
     entities_to_replace: list[str] = ["PERSON", "GPE", "NORP", "LANGUAGE", "LOC"]
 ) -> list[str]:
@@ -74,8 +76,9 @@ def get_data(
         if shuffle:
             random.seed(random_seed)
             random.shuffle(processed)
-            
-        summarize_data(processed)
+
+        if print_data_info:
+            print(" | ".join(f'{k}: {v:,}' for k,v in summarize_data(processed).items()))
         return processed
         
     else:
@@ -85,7 +88,8 @@ def get_data(
             if p.endswith(".txt"):
                 cat_data.extend(get_data(os.path.join(data_path, p)))
         print(f"*** {len(files)} files loaded and merged ***")
-        summarize_data(cat_data)
+        if print_data_info:
+            print(" | ".join(f'{k}: {v:,}' for k,v in summarize_data(cat_data).items()))
         return cat_data
         
 def train_val_split(
@@ -119,11 +123,11 @@ def summarize_data(data: list[str]) -> None:
         tokens = chunk.split()
         token_counter.update(tokens)
 
-    print(
-        f"*** | {sum(token_counter.values()):,} tokens | "
-        f"{len(token_counter):,} unique tokens | "
-        f"{len(data):,} chunks | ***"
-    )
+    return {
+        "total_tokens": sum(token_counter.values()),
+        "unique_tokens": len(token_counter),
+        "count_of_chunks": len(data),
+    }
 
 def flatten(xss: list[list[str]]) -> list[str]:
     """ flattens nested lists """

@@ -5,7 +5,7 @@ simple_stories_path = "/mnt/d/SimpleStories/"
 
 save_path = "data/simple_stories_filtered.txt"
     
-word_count_range = (80,160)
+word_count_range = (80,165)
 styles = ["lighthearted", "classic", "minimalist", "modern"]
 reading_ease = 81
 init_word_types = ["adverb"]
@@ -17,8 +17,8 @@ def sampling_mask(example):
         (example["word_count"] >= low) &
         (example["word_count"] <= high) &
         (example["flesch_reading_ease"] >= reading_ease) &
-        (example["initial_word_type"] in init_word_types)
-        # (example["style"] in styles)
+        (example["initial_word_type"] in init_word_types) &
+        (example["style"] in styles)
     )
 
 def newline_replace(example):
@@ -30,6 +30,7 @@ def build_simple_stories_sample():
     ds = ds.map(newline_replace)
     with open(save_path, "w", encoding="utf-8") as f:
         f.write("\n\n".join(ds["story"]))
+
 
 ## PANDAS FILTERING EXPERIMENT ##
 # ds = load_dataset(simple_stories_path, split="train")
