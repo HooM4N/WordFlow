@@ -1,4 +1,7 @@
-# CausalLSTM: Word‑Level LSTM Language Modeling in PyTorch
-This repository provides code and pre‑trained checkpoints for Word‑Level Language Modeling using LSTM neural networks. Models are trained on Project Gutenberg novels and the WikiText‑2 dataset.
+# WordFlow: Word‑Level Language Modeling using RNNs in PyTorch
+This repository provides code and pre‑trained checkpoints for Word‑Level Language Modeling using LSTM neural networks.
 
-The CasualLSTM architecture is optimized for Next-Token Prediction with Truncated BPTT and incorporates Mixed‑Precision Training, Weight Tying, and Gradient Clipping for efficient and stable training.
+**Training Modes**:
+* Truncated BPTT
+* Variable Lenght Sequences (with padding)
+* Sliding Sequence Windows (with stride 1)
