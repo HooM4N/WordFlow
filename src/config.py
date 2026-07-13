@@ -5,32 +5,7 @@ import torch
 #     Config File Utilites     #
 #==============================#
 
-def read_config(config_path: str) -> dict:
-    """
-    ==========================================
-    == Read YAML Config (GitHUB.com/HooM4N) ==
-    ==========================================
-    """
-    try:
-        with open(config_path, "r", encoding="utf-8") as f:
-            config = yaml.safe_load(f)
-        return config
-    except Exception as e:
-        print(f"** Error reading config file: {e} **") 
-    return None
 
-def write_config(config: dict, config_path: str):
-    """
-    ===============================================
-    == Writes to YAML Config (GitHUB.com/HooM4N) ==
-    ===============================================
-    """
-    os.makedirs(os.path.dirname(config_path), exist_ok=True)
-    try:
-        with open(config_path, "w") as f:
-            yaml.safe_dump(config, f, default_flow_style=False)
-    except Exception as e:
-        print(f"** Error writing config file: {e} **")
 
 #=====================================#
 #     Environment Setup Utilities     #

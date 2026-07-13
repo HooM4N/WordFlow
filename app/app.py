@@ -1,7 +1,7 @@
 import os, torch
 import gradio as gr
 
-from src.app_utils import list_runs, load_run, plot_training_logs
+from src.utils.app_utils import list_runs, load_run, plot_training_logs
 from src.inference import generate, predict_next_word
 from src.config import model_summary
 

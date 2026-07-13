@@ -1,9 +1,9 @@
 import os, json, matplotlib, matplotlib.pyplot as plt
 import torch
 
-from .config import read_config, resolve_device
-from .tokenizer import Tokenizer
-from .model import WordFlowModel
+from ..config import read_config, resolve_device
+from ..tokenizer import Tokenizer
+from ..model import WordFlowModel
 
 def plot_training_logs(
     train_logs: dict[str, list[float]], 
