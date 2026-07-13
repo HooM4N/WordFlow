@@ -18,15 +18,15 @@ def read_yaml(yaml_file_path: str) -> dict:
         logger.error(f"** Error reading config file: {e} **")
     return None
 
-def write_yaml(config: dict, config_path: str):
+def write_yaml(config: dict, yaml_path: str):
     """
     ===============================================
     == Writes to YAML Config (GitHUB.com/HooM4N) ==
     ===============================================
     """
-    os.makedirs(os.path.dirname(config_path), exist_ok=True)
+    os.makedirs(os.path.dirname(yaml_path), exist_ok=True)
     try:
-        with open(config_path, "w") as f:
+        with open(yaml_path, "w") as f:
             yaml.safe_dump(config, f, default_flow_style=False)
     except Exception as e:
-        print(f"** Error writing config file: {e} **")
+        logger.error(f"** Error writing config file: {e} **")

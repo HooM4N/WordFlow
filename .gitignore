@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+venv/
+.env
+.vscode/settings.json
+*.egg-info/
+dist/
+.ipynb_checkpoints/
+*.log
+*.tmp
+
+data
