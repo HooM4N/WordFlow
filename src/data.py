@@ -1,17 +1,22 @@
 import string
-import pandas as pd
+import logging
+
+logger = logging.getLogger(__name__)
 
 _PUNK_TABLE = str.maketrans({p: f" {p} " for p in string.punctuation})
 
 def text_preprocessor(text:str) -> str:
     text = text.lower()
-    text = text.replace("\n\n"," XXXBREAKLINEXXX ")
+    text = text.replace("\n\n"," XXBRKLNXX ").replace("<eos>"," XXEOSXX ")
     return text.translate(_PUNK_TABLE)
 
-
 def get_data(
-        data_path:str,
-        
-):
-    df = pd.read_parquet(DATA_PATH)[:15_000]
-    pass
+        data_path:str,   
+) -> str:
+    try:
+        with open(data_path) as f:
+            corpus = f.read()
+        return text_preprocessor(corpus)
+    except Exception as e:
+        logger.error(f"couldn't open data file: {e}")
+        return None

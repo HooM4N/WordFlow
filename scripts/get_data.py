@@ -5,7 +5,7 @@ TINY_STORIES_URL = (
     "https://huggingface.co/datasets/roneneldan/TinyStories/resolve/main/"
     "data/train-00000-of-00004-2d5a1467fff1081b.parquet?download=true"
 )
-COUNT_OF_STORIES = 15_000
+COUNT_OF_STORIES = 10_000
 RAW_SAVE_PATH = "data/raw"
 PROCESSED_SAVE_PATH = "data/processed"
 
