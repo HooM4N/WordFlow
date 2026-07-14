@@ -40,3 +40,10 @@ class TruncatedBPTTDataset(Dataset):
     def print_info(self):
         print(f"*** Batch Size: {self.batch_size} | Sequence Len: {self.seq_len} ***")
         print(f"*** Stream Lenght: {self.stream_len} | Number of Batches: {self.__len__()} ***")
+
+
+def bptt_collate(
+    batch: list[tuple[torch.Tensor, torch.Tensor]]
+) -> tuple[torch.Tensor, torch.Tensor, None]: 
+    X, Y = batch[0]
+    return X, Y, None
