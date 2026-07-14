@@ -3,17 +3,6 @@ from typing import Iterable, Callable, List
 from collections import Counter
 
 class Tokenizer():
-    """
-    =======================================================
-    == Word-Level Tokenizer (GitHub.com/HooM4N/WordFlow) ==
-    =======================================================
-    - Frequency-based vocabulary building (up to `max_tokens`).
-    - Lowercase normalizer by default, can be overridden by a custom preprocessor.
-    - Whitespace-split tokenization.
-    - Supports special tokens.
-    - Supports saving and loading trained tokenizer to JSON files.
-    - Consistent API with HuggingFace tokenizers: encode, decode, id_to_token, and token_to_id methods.
-    """
     def __init__(
         self, max_tokens: int = 30_000, 
         unk_token: str = "<unk>", 
