@@ -6,10 +6,12 @@ logger = logging.getLogger(__name__)
 
 _PUNK_TABLE = str.maketrans({p: f" {p} " for p in string.punctuation})
 
-# def text_preprocessor(text:str) -> str:
-#     text = text.lower()
-#     text = text.replace("\n\n"," XXBRKLNXX ").replace("<eos>"," XXEOSXX ")
-#     return text.translate(_PUNK_TABLE)
+def text_preprocessor(text:str) -> str:
+    text = text.lower()
+    text = re.sub(r"\n+", " \n ", text)
+    text = text.replace("\n"," BREAKLINE ").replace("<eos>"," EOSMARKER ")
+    text = text.translate(_PUNK_TABLE)
+    return text.replace(" EOSMARKER ", " <eos> ")
 
 def get_data(
         data_path:str,   
@@ -21,14 +23,3 @@ def get_data(
     except Exception as e:
         logger.error(f"couldn't open data file: {e}")
         return None
-    
-
-def text_preprocessor(text: str) -> str:
-    text = text.lower()
-    text = text.replace("<eos>", " XXEOSXX ")
-
-    # merge repetitive newline characters
-    text = re.sub(r"\n+", " \n ", text)
-    text = text.translate(_PUNK_TABLE)
-
-    return text.replace("XXEOSXX", " <eos> ")
