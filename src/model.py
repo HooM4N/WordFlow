@@ -1,135 +1,115 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 class WordFlowModel(nn.Module):
     """
-    =================================================
-    == WordFlow Model (GiTHUB.com/HooM4N/WordFlow) ==
-    =================================================
+    Recurrent Neural Network Model for Word-Level Language Modeling.
+    
+    Args:
+        vocab_size (int): Size of the tokenizer's vocabulary.
+        embedding_dim (int, optional): Dimensionality of word embeddings. Defaults to 300.
+        hidden_dim (int, optional): Dimensionality of GRU hidden states. Must equal 
+                                    `embedding_dim` if `tie_weights` is True. Defaults to 300.
+        num_layers (int, optional): Number of stacked GRU layers. Defaults to 1.
+        rnn_dropout_p (float, optional): Dropout between GRU layers. Defaults to 0.25.
+        emb_dropout_p (float, optional): Dropout after Embedding layer. Defaults to 0.2.
+        out_dropout_p (float, optional): Dropout before final Linear layer. Defaults to 0.2.
+        tie_weights (bool, optional): Whether to share embedding and output weights. Defaults to True.
+        padding_idx (int, optional): Vocabulary padding index. Defaults to 0.
+        
+    WordFlow: Word-Level Language Modeling with RNNs GiTHub.com/HooM4N/WordFlow
     """
     def __init__(
         self, 
         vocab_size: int, 
-        rnn_type: str = "GRU",
         embedding_dim: int = 300, 
-        hidden_dim: int = 512, 
+        hidden_dim: int = 300, 
         num_layers: int = 1,
         rnn_dropout_p: float = 0.25, 
         emb_dropout_p: float = 0.2, 
         out_dropout_p: float = 0.2,
         tie_weights: bool = True,
-        pretrained_embedding_matrix: torch.Tensor = None,
-        freeze_pretrained_embeddings: bool = True,
-        proj_nonlinearity: bool = False,
         padding_idx: int = 0,
     ):
         super().__init__()
-        assert rnn_type in ["LSTM", "GRU"]
-        self.rnn_type = rnn_type
         self.hidden_dim = hidden_dim
         self.num_layers = num_layers
-        self.proj_nonlinearity = proj_nonlinearity
         self.tie_weights = tie_weights
         
-        if pretrained_embedding_matrix is not None:
-            assert isinstance(pretrained_embedding_matrix, torch.Tensor)
-            assert pretrained_embedding_matrix.size(0) == vocab_size
-            self.embedding = nn.Embedding.from_pretrained(
-                pretrained_embedding_matrix, 
-                freeze = freeze_pretrained_embeddings, 
-                padding_idx = padding_idx
-            )
-        else:
-            self.embedding = nn.Embedding(
-                vocab_size, embedding_dim, padding_idx
-            )
-            
-        self.embedding_dim = self.embedding.embedding_dim
+        if tie_weights and embedding_dim != hidden_dim:
+            raise ValueError("When tie_weights=True, embedding_dim must equal hidden_dim.")
+        
+        self.embedding = nn.Embedding(vocab_size, embedding_dim, padding_idx)
         self.emb_dropout = nn.Dropout(emb_dropout_p)
         
-        self.rnn = getattr(nn, rnn_type)(
-            self.embedding_dim, hidden_dim, num_layers, batch_first=True, dropout = rnn_dropout_p if num_layers > 1 else 0
+        self.rnn = nn.GRU(
+            input_size=embedding_dim, 
+            hidden_size=hidden_dim, 
+            num_layers=num_layers, 
+            batch_first=True, 
+            dropout=rnn_dropout_p if num_layers > 1 else 0.0
         )
         self.out_dropout = nn.Dropout(out_dropout_p)
 
+        # Classification Head
+        self.fc = nn.Linear(hidden_dim, vocab_size, bias=not tie_weights) 
         if tie_weights: 
-            self.fc = nn.Linear(embedding_dim, vocab_size, bias=False) 
             self.fc.weight = self.embedding.weight 
-            self.use_proj = hidden_dim != embedding_dim 
-            if self.use_proj: 
-                self.proj = nn.Linear(hidden_dim, embedding_dim) 
-        else: 
-            self.fc = nn.Linear(hidden_dim, vocab_size)
-            self.use_proj = False
             
-        self.init_weights()
+        self._init_weights()
 
-    def init_weights(self):
+    def _init_weights(self):
+        """Initializes model weights uniformly."""
         initrange = 0.1
-        
-        if self.use_proj:
-            nn.init.uniform_(self.proj.weight, -initrange, initrange)
-            nn.init.zeros_(self.proj.bias)
-            
         if not self.tie_weights:
             nn.init.uniform_(self.fc.weight, -initrange, initrange)
             nn.init.zeros_(self.fc.bias)
             
         nn.init.uniform_(self.embedding.weight, -initrange, initrange)
         
-    def init_hidden(
-        self, batch_size: int
-    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
+    def init_hidden(self, batch_size: int) -> torch.Tensor:
         w = next(self.parameters())
-        if self.rnn_type == "LSTM":
-            return (w.new_zeros((self.num_layers, batch_size, self.hidden_dim)),
-                    w.new_zeros((self.num_layers, batch_size, self.hidden_dim)))
-        else:
-            return w.new_zeros((self.num_layers, batch_size, self.hidden_dim))
+        return w.new_zeros((self.num_layers, batch_size, self.hidden_dim))
 
     def forward(
         self, 
-        x: torch.Tensor, # (N, L)
-        hidden: torch.Tensor | tuple[torch.Tensor, torch.Tensor] = None, # GRU: (num_layers, N, H) 
-        padding_mask: torch.Tensor = None, # (N, L) , 0 -> padding tokens & 1 -> valid tokens 
-    ) -> tuple[torch.Tensor, torch.Tensor | tuple[torch.Tensor, torch.Tensor]]:
-
-        # Embedding
-        x = self.embedding(x) # (N, L, E)
+        x: torch.Tensor, 
+        hidden: torch.Tensor = None, 
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """
+        Forward pass of the WordFlow Model.
+        
+        Args:
+            x (torch.Tensor): Input tensor of token IDs, shape (N, L).
+            hidden (torch.Tensor, optional): Previous GRU hidden state. 
+                                             Defaults to None.
+            
+        Returns:
+            tuple[torch.Tensor, torch.Tensor]:
+                - Output logits of shape (N, vocab_size, L)
+                - Updated hidden state of shape (num_layers, N, hidden_dim)
+        """
+        # 1. Embedding
+        x = self.embedding(x)  # (N, L, E)
         x = self.emb_dropout(x)
 
-        # RNN
-        if padding_mask is not None:
-            x = pack_padded_sequence(
-                x, padding_mask.sum(dim=1).cpu(), batch_first=True, enforce_sorted=False
-            )
-        x, hidden = self.rnn(x, hidden) # x (packed if padded): (N, L, H), hidden (GRU): (num_layers, N, H)
-        if padding_mask is not None:
-            x, _ =  pad_packed_sequence(
-                x, batch_first=True, total_length=padding_mask.size(1)
-            )
+        # 2. RNN
+        x, hidden = self.rnn(x, hidden)  # x: (N, L, H), hidden: (num_layers, N, H)
         
-        # Projection
-        if self.use_proj:
-            x = self.proj(x) # (N, L, E)
-            if self.proj_nonlinearity:
-                x = F.gelu(x)
-            
-        # Classification Head
+        # 3. Classification Head
         x = self.out_dropout(x)
-        return (
-            self.fc(x).permute(0, 2, 1), # (N, vocab_size, L)
-            hidden # (GRU): (num_layers, N, H)
-        )
+        logits = self.fc(x) # (N, L, vocab_size)
+        
+        # PyTorch CrossEntropyLoss expects (N, C, L) for multidimensional inputs
+        logits = logits.permute(0, 2, 1) # (N, vocab_size, L)
+        
+        return logits, hidden
 
-def detach_hidden(
-    hidden: tuple[torch.Tensor, torch.Tensor]
-) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
+
+def detach_hidden(hidden: torch.Tensor) -> torch.Tensor:
     """
-    Detach hidden states from the current graph
+    Detaches the hidden state from the current computation graph.
+       
+    WordFlow: Word-Level Language Modeling with RNNs GiTHub.com/HooM4N/WordFlow
     """
-    if isinstance(hidden, torch.Tensor):
-        return hidden.detach()
-    return tuple(detach_hidden(h) for h in hidden)
+    return hidden.detach()
