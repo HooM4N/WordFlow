@@ -12,7 +12,6 @@ class WordFlowModel(nn.Module):
     def __init__(
         self, 
         vocab_size: int, 
-        rnn_type: str = "GRU",
         embedding_dim: int = 300, 
         hidden_dim: int = 512, 
         num_layers: int = 1,
@@ -20,37 +19,24 @@ class WordFlowModel(nn.Module):
         emb_dropout_p: float = 0.2, 
         out_dropout_p: float = 0.2,
         tie_weights: bool = True,
-        pretrained_embedding_matrix: torch.Tensor = None,
-        freeze_pretrained_embeddings: bool = True,
-        proj_nonlinearity: bool = False,
         padding_idx: int = 0,
     ):
         super().__init__()
-        assert rnn_type in ["LSTM", "GRU"]
-        self.rnn_type = rnn_type
         self.hidden_dim = hidden_dim
         self.num_layers = num_layers
-        self.proj_nonlinearity = proj_nonlinearity
         self.tie_weights = tie_weights
         
-        if pretrained_embedding_matrix is not None:
-            assert isinstance(pretrained_embedding_matrix, torch.Tensor)
-            assert pretrained_embedding_matrix.size(0) == vocab_size
-            self.embedding = nn.Embedding.from_pretrained(
-                pretrained_embedding_matrix, 
-                freeze = freeze_pretrained_embeddings, 
-                padding_idx = padding_idx
-            )
-        else:
-            self.embedding = nn.Embedding(
-                vocab_size, embedding_dim, padding_idx
-            )
+        self.embedding = nn.Embedding(vocab_size, embedding_dim, padding_idx)
             
         self.embedding_dim = self.embedding.embedding_dim
         self.emb_dropout = nn.Dropout(emb_dropout_p)
         
-        self.rnn = getattr(nn, rnn_type)(
-            self.embedding_dim, hidden_dim, num_layers, batch_first=True, dropout = rnn_dropout_p if num_layers > 1 else 0
+        self.rnn = nn.GRU(
+            self.embedding_dim, 
+            hidden_dim, 
+            num_layers, 
+            batch_first=True, 
+            dropout = rnn_dropout_p if num_layers > 1 else 0
         )
         self.out_dropout = nn.Dropout(out_dropout_p)
 

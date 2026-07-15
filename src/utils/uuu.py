@@ -1,44 +1,9 @@
 import os, yaml
-import torch
-
-#==============================#
-#     Config File Utilites     #
-#==============================#
-
-
-
-#=====================================#
-#     Environment Setup Utilities     #
-#=====================================#
-
-def resolve_device(use_accelerator: bool=True) -> torch.device:
-    """
-    ==========================================================
-    == Resolve Available PyTorch Device (GitHUB.com/HooM4N) ==
-    ==========================================================
-    """
-    if use_accelerator and torch.accelerator.is_available():
-        device = torch.accelerator.current_accelerator()
-    else:
-        device = torch.device("cpu")
-    print(f"*** Using device: {device.type} ***")
-    return device
 
 def ensure_dirs(paths: dict):
-    """
-    ================================================================
-    == Ensures Existence of Given Directories (GitHUB.com/HooM4N) ==
-    ================================================================
-    """
     for k,p in paths.items():
         if p is not None and k.endswith("_dir"):
             os.makedirs(p, exist_ok=True)
-
-
-#=================================#
-#     Model Summary Utilities     #
-#=================================#
-
 
 def model_summary(model: torch.nn.Module) -> str:
     """
