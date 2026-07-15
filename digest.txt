@@ -36,11 +36,8 @@ torch>=2.0.0
 pydantic>=2.0.0
 pyyaml
 pandas
-pyarrow
-fastparquet
 tqdm
 matplotlib
-gradio
 
 
 ================================================
@@ -63,11 +60,8 @@ use_accelerator: true
 runs_dir: "runs/"
 
 data:
-  train_data_path: "data/processed/tiny_stories.txt"
-  val_data_path: null
-  do_val_split: true
-  val_split_ratio: 0.1
-  val_split_shuffle: true
+  train_data_path: "data/processed/train.txt"
+  val_data_path: "data/processed/val.txt"
   max_vocab_size: 25000
   tokenizer_lowercase: true
 
@@ -208,36 +202,56 @@ TINY_STORIES_URL = (
     "https://huggingface.co/datasets/roneneldan/TinyStories/resolve/main/"
     "data/train-00000-of-00004-2d5a1467fff1081b.parquet?download=true"
 )
-COUNT_OF_STORIES = 10_000
+COUNT_OF_STORIES = 14_000
+VAL_SPLIT_RATIO = 0.1
+RANDOM_SEED = 1212
+
 RAW_SAVE_PATH = "data/raw"
 PROCESSED_SAVE_PATH = "data/processed"
 
-# Ensure output directories exist
 os.makedirs(RAW_SAVE_PATH, exist_ok=True)
 os.makedirs(PROCESSED_SAVE_PATH, exist_ok=True)
 
-# 1. Download and save the raw parquet file
-raw_file_path = os.path.join(RAW_SAVE_PATH, "tiny_stories.parquet")
-if not os.path.exists(raw_file_path):
-    print("Downloading raw parquet file...")
-    df = pd.read_parquet(TINY_STORIES_URL)
-    df.to_parquet(raw_file_path, index=False)
-    print(f"Raw data saved to {raw_file_path}")
-else:
-    df = pd.read_parquet(raw_file_path)
+def main():
+    raw_file_path = os.path.join(RAW_SAVE_PATH, "tiny_stories.parquet")
+    
+    if not os.path.exists(raw_file_path):
+        print("Downloading raw parquet file...")
+        df = pd.read_parquet(TINY_STORIES_URL)
+        df.to_parquet(raw_file_path, index=False)
+        print(f"Raw data saved to {raw_file_path}")
+    else:
+        print("Loading raw parquet file from disk...")
+        df = pd.read_parquet(raw_file_path)
 
-# 2. Keep only the first COUNT_OF_STORIES stories
-df = df.iloc[:COUNT_OF_STORIES]
+    df = df.iloc[:COUNT_OF_STORIES]
 
-# 3. Build the corpus with <eos> tokens
-corpus = " <eos> ".join(df.text)
+    print("Splitting dataset into train and validation sets...")
+    
+    df = df.sample(frac=1.0, random_state=RANDOM_SEED).reset_index(drop=True)
+    
+    split_idx = int(len(df) * (1 - VAL_SPLIT_RATIO))
+    
+    train_df = df.iloc[:split_idx]
+    val_df = df.iloc[split_idx:]
 
-# 4. Save the processed text file
-processed_file = os.path.join(PROCESSED_SAVE_PATH, "tiny_stories.txt")
-with open(processed_file, "w", encoding="utf-8") as f:
-    f.write(corpus)
+    train_corpus = " <eos> ".join(train_df.text)
+    val_corpus = " <eos> ".join(val_df.text)
 
-print(f"Data successfully downloaded, filtered, and saved to {processed_file}")
+    train_path = os.path.join(PROCESSED_SAVE_PATH, "train.txt")
+    val_path = os.path.join(PROCESSED_SAVE_PATH, "val.txt")
+    
+    with open(train_path, "w", encoding="utf-8") as f:
+        f.write(train_corpus)
+        
+    with open(val_path, "w", encoding="utf-8") as f:
+        f.write(val_corpus)
+
+    print(f"Success! Train data saved to: {train_path}")
+    print(f"Success! Val data saved to:   {val_path}")
+
+if __name__ == "__main__":
+    main()
 
 
 ================================================
@@ -258,7 +272,6 @@ from src.dataset import TruncatedBPTTDataset, bptt_collate
 from src.tokenizer import Tokenizer
 from src.model import WordFlowModel, detach_hidden
 from src.trainer import trainer
-
 
 def setup_run_directory_and_logger(config: WordFlowConfig) -> str:
     """Creates the timestamped run directory and configures logging"""
@@ -287,7 +300,6 @@ def main():
     args = get_args()
     
     config = WordFlowConfig.from_yaml(args.config_path)
-    
     run_dir = setup_run_directory_and_logger(config)
     logger = logging.getLogger(__name__)
     
@@ -297,51 +309,37 @@ def main():
     torch.manual_seed(config.seed)
     logger.info(f"Using device: {device.type}")
 
-    logger.info("Loading corpus...")
+    # 1. Load Data
+    logger.info("Loading training corpus...")
     train_corpus = get_data(config.data.train_data_path)
     
     val_corpus = None
-    if config.data.do_val_split:
-        split_idx = int(len(train_corpus) * (1 - config.data.val_split_ratio))
-        val_corpus = train_corpus[split_idx:]
-        train_corpus = train_corpus[:split_idx]
+    if config.data.val_data_path and os.path.exists(config.data.val_data_path):
+        logger.info("Loading validation corpus...")
+        val_corpus = get_data(config.data.val_data_path)
 
+    # 2. Tokenization
     logger.info("Building vocabulary...")
     tokenizer = Tokenizer(
         max_tokens=config.data.max_vocab_size, 
         lowercase=config.data.tokenizer_lowercase
     )
-
     tokenizer.build_vocab([train_corpus])
     
     train_ids = tokenizer.encode(train_corpus)
     logger.info(f"Training corpus length: {len(train_ids):,} tokens")
 
-    train_ds = TruncatedBPTTDataset(
-        train_ids, 
-        batch_size=config.train.batch_size, 
-        seq_len=config.train.seq_len
-        )
-    
-    # we already getting (N, L) from dataset, so no need for batching
-    train_loader = DataLoader(
-        train_ds, 
-        batch_size=1, 
-        shuffle=False, 
-        pin_memory=True, 
-        collate_fn=bptt_collate
-        )
+    # 3. DataLoaders
+    train_ds = TruncatedBPTTDataset(train_ids, batch_size=config.train.batch_size, seq_len=config.train.seq_len)
+    train_loader = DataLoader(train_ds, batch_size=1, shuffle=False, pin_memory=True, collate_fn=bptt_collate)
     
     val_loader = None
     if val_corpus:
         val_ids = tokenizer.encode(val_corpus)
-        val_ds = TruncatedBPTTDataset(
-            val_ids, batch_size=config.train.batch_size, seq_len=config.train.seq_len
-            )
-        val_loader = DataLoader(
-            val_ds, batch_size=1, shuffle=False, pin_memory=True, collate_fn=bptt_collate
-            )
+        val_ds = TruncatedBPTTDataset(val_ids, batch_size=config.train.batch_size, seq_len=config.train.seq_len)
+        val_loader = DataLoader(val_ds, batch_size=1, shuffle=False, pin_memory=True, collate_fn=bptt_collate)
 
+    # 4. Model
     model = WordFlowModel(
         vocab_size=tokenizer.get_vocab_size(),
         embedding_dim=config.model.embedding_dim,
@@ -354,21 +352,16 @@ def main():
         padding_idx=tokenizer.token_to_id("<pad>")
     ).to(device)
 
-    # all timesteps within sequences are actual word tokens and not padding, but we pass this anyway!
-    loss_fn = nn.CrossEntropyLoss(ignore_index=tokenizer.token_to_id("<pad>"))
-    
-    optimizer = torch.optim.AdamW(
-        model.parameters(), 
-        lr=config.train.lr, 
-        weight_decay=config.train.weight_decay
-    )
-    
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        optimizer, 
-        T_max=config.train.n_epochs, 
-        eta_min=config.train.eta_min
-    )
+    # Log parameter count
+    total_params = sum(p.numel() for p in model.parameters())
+    logger.info(f"WordFlowModel initialized with {total_params:,} parameters.")
 
+    # 5. Training Components
+    loss_fn = nn.CrossEntropyLoss(ignore_index=tokenizer.token_to_id("<pad>"))
+    optimizer = torch.optim.AdamW(model.parameters(), lr=config.train.lr, weight_decay=config.train.weight_decay)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=config.train.n_epochs, eta_min=config.train.eta_min)
+
+    # 6. Training Loop
     logger.info("Beginning training loop...")
     trainer(
         model=model,
@@ -399,16 +392,13 @@ FILE: src/config.py
 ================================================
 import yaml
 import json
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 class DataConfig(BaseModel):
     train_data_path: str
     val_data_path: str | None = None
-    do_val_split: bool = True
-    val_split_ratio: float = 0.1
-    val_split_shuffle: bool = True
     max_vocab_size: int = 25000
-    tokenizer_lowercase: bool = False
+    tokenizer_lowercase: bool = True
 
 class ModelConfig(BaseModel):
     embedding_dim: int = 300
@@ -433,7 +423,7 @@ class TrainConfig(BaseModel):
 class WordFlowConfig(BaseModel):
     seed: int = 1212
     use_accelerator: bool = True
-    runs_dir: str = "runs/"
+    runs_dir: "runs/"
     
     data: DataConfig
     model: ModelConfig
