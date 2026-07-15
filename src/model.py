@@ -5,10 +5,6 @@ class WordFlowModel(nn.Module):
     """
     Recurrent Neural Network Model for Word-Level Language Modeling.
     
-    Uses an Embedding layer, a stacked GRU, and a Linear classification head.
-    Supports weight tying between the Embedding layer and the Output layer to 
-    drastically reduce parameter count and improve generalization.
-    
     Args:
         vocab_size (int): Size of the tokenizer's vocabulary.
         embedding_dim (int, optional): Dimensionality of word embeddings. Defaults to 300.

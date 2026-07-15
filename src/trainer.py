@@ -1,206 +1,138 @@
-import os, json, math
-from tqdm import tqdm
-from typing import Callable
+import os
+import json
+import math
+import logging
 from datetime import datetime
+from typing import Callable
 
 import torch
 import torch.nn as nn
+from torch.utils.data import DataLoader
 
+from .evaluate import evaluate
 from .tokenizer import Tokenizer
-from .config import write_config
+from .config import WordFlowConfig
 
-#=======================#
-#     Training Loop     #
-#=======================#
+logger = logging.getLogger(__name__)
 
 def trainer(
-    model: torch.nn.Module,
+    model: nn.Module,
     optimizer: torch.optim.Optimizer,
-    config: dict[str, int | float | str],
-    device: torch.device, 
     scheduler: torch.optim.lr_scheduler.LRScheduler,
-    detach_hidden: Callable, 
-    train_loader: torch.utils.data.DataLoader,
     loss_fn: Callable,
+    train_loader: DataLoader,
+    val_loader: DataLoader | None,
+    config: WordFlowConfig,
+    device: torch.device,
+    run_dir: str,
     tokenizer: Tokenizer,
-    val_loader: torch.utils.data.DataLoader = None,
-) -> torch.nn.Module:
+    detach_hidden: Callable,
+) -> nn.Module:
     """
-    =======================================================
-    == Trainer for WordFlow (GiTHUB.com/HooM4N/WordFlow) ==
-    =======================================================
+    Main training loop for Truncated BPTT Word-Level Modeling.
+    
     Features:
-        - Mixed Precision Training
-        - Experiment Tracking: save per-run configs, logs & best checkpoint
-        - Early Stopping
+        - Mixed Precision (AMP)
         - Gradient Clipping
-        - Restore Best Model
-        - Model Checkpoint
-        - Resume Training from Checkpoint
-    """
-    if config["checkpoint_path"] is not None:
-        model.load_state_dict(
-            torch.load(config["checkpoint_path"], map_location=device, weights_only=True)
-            )
-        print(f"*** Continue training from checkpoint ***")
+        - Cosine Annealing LR Scheduling
+        - Run artifact tracking (JSON logs, Model configs)
+        - Early stopping and graceful KeyboardInterrupt recovery
         
-    train_logs = {"train_loss":[] , "val_loss":[] , "val_metric":[], "lr":[], "epoch_time": []}
-    model.train()
-    config["enable_mixed_precision"] = device.type == "cuda"
-    scaler = torch.amp.GradScaler(enabled = config["enable_mixed_precision"])
-    best_loss, es_counter, best_epoch, best_ckpnt_path = float('inf'), 0, None, None
-    run_name = datetime.now().strftime("WordFlow_run_%m-%d_%H-%M")
-    print(f"*** Starting run {run_name} for {config["training_mode"].upper()} Language Modeling ***")
+    WordFlow: Word-Level Language Modeling with RNNs GiTHub.com/HooM4N/WordFlow
+    """
+    scaler = torch.amp.GradScaler(enabled=config.train.enable_mixed_precision)
+    train_logs = {"train_loss": [], "val_loss": [], "val_perplexity": [], "lr": [], "epoch_time": []}
+    
+    best_loss = float('inf')
+    es_counter = 0
+    best_epoch = 0
+    best_ckpnt_path = os.path.join(run_dir, "checkpoint_best.pt")
+    last_ckpnt_path = os.path.join(run_dir, "checkpoint_last.pt")
 
-    try: # return best artifacts on training interruption
-        for epoch in range(config["n_epochs"]):
+    logger.info(f"Starting training run in {run_dir}")
+    
+    try:
+        for epoch in range(config.train.n_epochs):
             epoch_start = datetime.now()
             model.train()
             total_loss = 0.0
-            hidden = model.init_hidden(config["batch_size"])
+            
+            hidden = model.init_hidden(train_loader.dataset.batch_size)
 
-            for X, Y, padding_mask in tqdm(train_loader, desc=f"Epoch {epoch+1}/{config["n_epochs"]}"):
+            for X, Y in train_loader:
                 X, Y = X.to(device), Y.to(device)
-                padding_mask = padding_mask.to(device) if padding_mask is not None else None
                 optimizer.zero_grad(set_to_none=True)
+                
                 hidden = detach_hidden(hidden)
+                
                 with torch.autocast(
-                    device_type=device.type, dtype=torch.float16, enabled = config["enable_mixed_precision"]
-                ):
-                    logits, hidden = model(
-                        X,
-                        hidden if config["training_mode"] == "bptt" else None,
-                        padding_mask,
-                    )
+                    device_type=device.type, 
+                    dtype=torch.float16, 
+                    enabled=config.train.enable_mixed_precision
+                    ):
+                    logits, hidden = model(X, hidden)
                     loss = loss_fn(logits, Y)
+                    
                 total_loss += loss.item()
                 scaler.scale(loss).backward()
+                
                 scaler.unscale_(optimizer)
-                nn.utils.clip_grad_norm_(model.parameters(), config["grad_clip_norm"])
+                nn.utils.clip_grad_norm_(model.parameters(), config.train.grad_clip_norm)
+                
                 scaler.step(optimizer)
                 scaler.update()
-                if config["dry_run"]:
-                    break
-    
-            # logger
-            train_logs["train_loss"].append(total_loss / len(train_loader))
-            if val_loader is not None:
+
+            # End of epoch calculations
+            avg_train_loss = total_loss / len(train_loader)
+            train_logs["train_loss"].append(avg_train_loss)
+            train_logs["lr"].append(optimizer.param_groups[0]['lr'])
+            
+            log_msg = f"Epoch {epoch + 1}/{config.train.n_epochs} | Train Loss: {avg_train_loss:.4f}"
+
+            if val_loader:
                 val_loss = evaluate(
-                    model, val_loader, loss_fn, device, config, detach_hidden
+                    model, val_loader, loss_fn, device, detach_hidden, config.train.enable_mixed_precision
                 )
                 train_logs["val_loss"].append(val_loss)
-                train_logs["val_metric"].append(math.exp(val_loss))
-            train_logs["lr"].append(optimizer.param_groups[0]['lr'])
+                train_logs["val_perplexity"].append(math.exp(val_loss))
+                log_msg += f" | Val Loss: {val_loss:.4f} | Val Perplexity: {math.exp(val_loss):.4f}"
+            
             train_logs["epoch_time"].append((datetime.now() - epoch_start).total_seconds())
-    
-            log_msg = (
-                f"\r Epoch {epoch + 1}/{config['n_epochs']}, "
-                f"train loss: {train_logs['train_loss'][-1]:.4f}, "
-            )
-            if val_loader is not None:
-                log_msg += (
-                    f"val loss: {train_logs['val_loss'][-1]:.4f}, "
-                    f"val perplexity: {train_logs['val_metric'][-1]:.4f}, "
-                )
-            log_msg += (
-                f"lr: {train_logs['lr'][-1]}, "
-                f"epoch time: {train_logs['epoch_time'][-1]:.2f}s"
-            )
-            print(log_msg)      
-    
-            # checkpoints
-            torch.save(
-                model.state_dict(), os.path.join(config["models_dir"], f"WordFlow_ckpnt_last.pt")
-            )
-            with open(os.path.join(config["models_dir"], "checkpoint_info.json"), "w") as f:
-                json.dump({
-                    "run_name": run_name,
-                    "epoch": epoch+1,
-                    "train_loss": train_logs['train_loss'][-1],
-                    "val_loss": train_logs['val_loss'][-1] if val_loader else None,
-                }, f)
+            logger.info(log_msg)
 
-            # lr scheduler
-            if val_loader is not None and isinstance(scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
-                scheduler.step(val_loss)
-            else:
-                scheduler.step()
+            # Checkpointing
+            torch.save(model.state_dict(), last_ckpnt_path)
 
-            if val_loader is not None:
-                # track best model
-                if val_loss < best_loss - config["early_stopping_epsilon"]:
+            scheduler.step()
+
+            # Early Stopping and Best Model tracking
+            if val_loader:
+                if val_loss < best_loss:
                     best_loss = val_loss
                     best_epoch = epoch + 1
-                    best_ckpnt_path = os.path.join(config["models_dir"], f"WordFlow_ckpnt_best.pt")
                     torch.save(model.state_dict(), best_ckpnt_path)
                     es_counter = 0
                 else:
                     es_counter += 1
         
-                # early stopping
-                if es_counter >= config["early_stopping_patience"]:
-                    print(f"*** Early Stopping triggered at epoch: {epoch+1} ***")
+                if es_counter >= config.train.early_stopping_patience:
+                    logger.info(f"Early Stopping triggered at epoch {epoch + 1}.")
                     break
-                
-    except KeyboardInterrupt:
-        print("\n*** Training interrupted by user ***")
-    
-    finally:
-        # restore best model
-        if best_ckpnt_path is not None:
-            model.load_state_dict(
-                torch.load(best_ckpnt_path, map_location=device, weights_only=True)
-            )
-            print(f"*** Restoring best model from epoch: {best_epoch} ***")
 
-        config["trained_epochs"] = epoch+1
-    
-        # save artifacts
-        run_dir = os.path.join(config["models_dir"], run_name)
-        os.makedirs(run_dir, exist_ok=True)
-        torch.save(model.state_dict(), os.path.join(run_dir, "WordFlow_ckpnt.pt"))
-        write_config(config, os.path.join(run_dir, f"config.yaml"))
-        with open(os.path.join(run_dir, f"training_logs.json"), "w") as f:
+    except KeyboardInterrupt:
+        logger.warning("Training interrupted by user (KeyboardInterrupt).")
+
+    finally:
+        # Wrap up training gracefully
+        if os.path.exists(best_ckpnt_path):
+            model.load_state_dict(torch.load(best_ckpnt_path, map_location=device, weights_only=True))
+            logger.info(f"Restored best model from epoch {best_epoch}.")
+
+        # Save final artifacts
+        with open(os.path.join(run_dir, "training_logs.json"), "w") as f:
             json.dump(train_logs, f, indent=2)
+            
         tokenizer.save(os.path.join(run_dir, "tokenizer.json"))
-        print(f"*** Run {run_name} completed. artifacts saved in: {run_dir} ***")
+        logger.info(f"Run completed. All artifacts saved in: {run_dir}")
     
     return model
-
-#===================#
-#     Evaluator     #
-#===================#
-
-@torch.no_grad()
-def evaluate(
-    model: torch.nn.Module, 
-    eval_loader: torch.utils.data.DataLoader, 
-    loss_fn: Callable, 
-    device: torch.device, 
-    config:  dict[str, int | float | str], 
-    detach_hidden: Callable,
-    disable_progress_bar: bool = True
-) -> float:
-    """
-    ====================================================================
-    == Evaluator Function for CausalLSTM (GiTHUB.com/HooM4N/WordFlow) ==
-    ====================================================================
-    """
-    model.eval()
-    total_loss = 0.0
-    hidden = model.init_hidden(config["batch_size"])
-    
-    for X, Y, padding_mask in tqdm(eval_loader, disable = disable_progress_bar):
-        X, Y = X.to(device), Y.to(device)
-        padding_mask = padding_mask.to(device) if padding_mask is not None else None
-        hidden = detach_hidden(hidden)
-        with torch.autocast(
-            device_type=device.type, dtype=torch.float16, enabled=config["enable_mixed_precision"]
-        ):
-            logits, hidden = model(
-                X,
-                hidden if config["training_mode"] == "bptt" else None,
-                padding_mask,
-            )
-            total_loss += loss_fn(logits, Y).item()
-    return total_loss / len(eval_loader)

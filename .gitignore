@@ -8,6 +8,7 @@ dist/
 .ipynb_checkpoints/
 *.log
 *.tmp
+digest.txt
 
 data
 bptt.md
