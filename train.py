@@ -46,7 +46,7 @@ def main():
     
     config.save_json(os.path.join(run_dir, "config.json"))
     
-    device = torch.device("cuda" if config.use_accelerator and torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     torch.manual_seed(config.seed)
     logger.info(f"Using device: {device.type}")
 

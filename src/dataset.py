@@ -34,7 +34,7 @@ class TruncatedBPTTDataset(Dataset):
 
         self.seq_len = seq_len
         self.batch_size = batch_size
-        self.stream_len = full_seq.size(1) - 1
+        self.stream_len = self.full_seq.size(1) - 1 # <-- Changed to self.full_seq!
 
     def __len__(self) -> int:
         return self.stream_len // self.seq_len

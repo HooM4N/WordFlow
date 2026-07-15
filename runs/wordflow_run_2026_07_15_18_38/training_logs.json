@@ -1,0 +1,7 @@
+{
+  "train_loss": [],
+  "val_loss": [],
+  "val_perplexity": [],
+  "lr": [],
+  "epoch_time": []
+}
