@@ -1,13 +1,12 @@
 Directory structure:
 └── wordflow/
+    ├── README.md
     ├── requirements.txt
     ├── app/
-    │   ├── app.py
     │   └── main.py
     ├── configs/
     │   ├── app_config.yaml
-    │   ├── config.yaml
-    │   └── train_config.yaml
+    │   └── config.yaml
     ├── notebooks/
     │   └── eda.ipynb
     ├── scripts/
@@ -15,200 +14,33 @@ Directory structure:
     │   └── train.py
     └── src/
         ├── __init__.py
+        ├── config.py
         ├── data.py
         ├── dataset.py
+        ├── evaluate.py
         ├── inference.py
         ├── model.py
         ├── tokenizer.py
-        ├── trainer.py
-        └── utils/
-            ├── app_utils.py
-            ├── conf.py
-            ├── torch_device.py
-            └── yaml.py
+        └── trainer.py
+
+================================================
+FILE: README.md
+================================================
+WordFlow
+
 
 ================================================
 FILE: requirements.txt
 ================================================
-[Empty file]
-
-
-================================================
-FILE: app/app.py
-================================================
-import os, torch
-import gradio as gr
-
-from src.utils.app_utils import list_runs, load_run, plot_training_logs
-from src.inference import generate, predict_next_word
-from src.utils.uuu import model_summary
-
-
-#==================#
-#     Handlers     #
-#==================#
-
-def find_runs_in_dir(models_dir: str):
-    try:
-        runs = list_runs(models_dir)
-        return gr.update(choices=runs, value=runs[0] if runs else None)
-    except Exception:
-        return gr.update(choices=[], value=None)
-
-
-def refresh_runs(models_dir: str):
-    try:
-        runs = list_runs(models_dir)
-        return gr.update(choices=runs, value=runs[0] if runs else None)
-    except Exception:
-        return gr.update(choices=[], value=None)
-
-
-def on_select_run(run_path: str):
-    if not run_path:
-        return None, None, None, None, None, None, None, None
-
-    out = load_run(run_path)
-    if out is None:
-        return None, None, None, None, None, None, None, None
-
-    model, tokenizer, config, device, training_logs = out
-
-    fig = plot_training_logs(training_logs)
-
-    info_md = f"""
-    #### <center>---=( RUN INFORMATION )=---
-    
-    > 📚 **Training Dataset:**  
-    > {os.path.basename(config["train_data_path"])}
-    
-    > ⚙️ **Training Mode:** {config["training_mode"].capitalize()}
-    
-    > 🔢 **Sequence Length:**  {config["seq_len"]}
-    
-    > 📈 **Training Epochs:**  {len(training_logs["train_loss"])}
-    
-    > 🌀 **RNN Type:**  {config["model_params"]["rnn_type"]}
-    """
-
-    summary_text = f"```\n{model_summary(model)}\n```"
-    
-    return (
-        model, tokenizer, config, device, training_logs,
-        info_md, fig, summary_text
-    )
-
-
-def on_generate_text(model, tokenizer, config, device, init_word, temperature, max_new_tokens):
-    if not all([model, tokenizer, config, device]):
-        return "Load a run first."
-    try:
-        return generate(
-            model=model,
-            tokenizer=tokenizer,
-            config=config,
-            device=device,
-            init_word=init_word.strip() if init_word else None,
-            max_new_tokens=int(max_new_tokens),
-            temperature=float(temperature),
-        )
-    except Exception as e:
-        return f"Generation failed: {e}"
-        
-#===================#
-#     Gradio UI     #
-#===================#
-
-def get_app():
-    with gr.Blocks(
-        theme=gr.themes.Origin(
-            text_size=gr.themes.sizes.text_md,
-            primary_hue=gr.themes.colors.rose,
-            secondary_hue=gr.themes.colors.yellow,
-            neutral_hue=gr.themes.colors.blue,
-        ),
-        title = "WordFlow"
-    ) as app:
-        gr.Markdown("# *WordFlow Experiments Dashboard*")
-        gr.Markdown("#### <center> **WordFlow** is a Word-Level Languae Modeling Project using"
-                    " Recurrent Neural Networks <a href='https://GiTHUB.com/HooM4N/WordFlow'>"
-                    "(GiTHUB.com/HooM4N/WordFlow)</a>", container=True)
-    
-        # States
-        st_model = gr.State()
-        st_tokenizer = gr.State()
-        st_config = gr.State()
-        st_device = gr.State()
-        st_logs = gr.State()
-    
-        # 1st Row
-        with gr.Row(equal_height=True):
-            with gr.Column(scale=1):
-                models_dir = gr.Textbox(label="Models directory", value="models/", lines=1)
-                find_runs_btn = gr.Button("Find runs", variant="primary")
-                run_dropdown = gr.Dropdown(label="Select run", choices=[], value=None)
-                refresh_dir_btn = gr.Button("Refresh directory", variant="secondary")
-            with gr.Column(scale=3):
-                train_plot = gr.Plot(label="Training Plots")
-    
-        # 2nd Row
-        with gr.Row(equal_height=True):
-            with gr.Column(scale=1):
-                info_box = gr.Markdown(label="Run info", container=True)
-            with gr.Column(scale=3):
-                summary_box = gr.Markdown(label="Model Summary", container=False)
-    
-        gr.Markdown("---")
-    
-        # Text generation tab
-        with gr.Tab("Text Generation"):
-            with gr.Row(equal_height=True):
-                with gr.Column(scale=1):
-                    init_word = gr.Textbox(value ="<bos>", label="Initial word", placeholder="e.g., <bos>")
-                    temperature = gr.Slider(label="Temperature", minimum=0.4, maximum=1.5, value=0.7, step=0.05)
-                    max_new_tokens = gr.Slider(label="Max new tokens", minimum=5, maximum=200, value=100, step=1)
-                    gen_btn = gr.Button("Generate", variant="primary")
-                with gr.Column(scale=2):
-                    gen_output = gr.Textbox(label="Generated Text", interactive=False, lines=5)
-    
-        # Next word prediction tab
-        with gr.Tab("Next Word Prediction"):
-            with gr.Row(equal_height=True):
-                with gr.Column(scale=1):
-                    context_in = gr.Textbox(label="Context", placeholder="Type a short phrase...")
-                    predict_btn = gr.Button("Predict", variant="primary")
-                with gr.Column(scale=2):
-                    prob_output = gr.Label(num_top_classes=5)
-    
-        # Events
-        find_runs_btn.click(fn=find_runs_in_dir, inputs=models_dir, outputs=run_dropdown)
-        refresh_dir_btn.click(fn=refresh_runs, inputs=models_dir, outputs=run_dropdown)
-    
-        run_dropdown.change(
-            fn=on_select_run,
-            inputs=run_dropdown,
-            outputs=[
-                st_model, st_tokenizer, st_config, st_device, st_logs,
-                info_box, train_plot, summary_box
-            ]
-        )
-    
-        gen_btn.click(
-            fn=on_generate_text,
-            inputs=[st_model, st_tokenizer, st_config, st_device, init_word, temperature, max_new_tokens],
-            outputs=gen_output
-        )
-    
-        predict_btn.click(
-            fn=predict_next_word,
-            inputs=[st_model, st_tokenizer, st_config, st_device, context_in],
-            outputs=prob_output
-        )
-    return app
-
-if __name__ == "__main__":
-    app = get_app()
-    app.launch()
+torch>=2.0.0
+pydantic>=2.0.0
+pyyaml
+pandas
+pyarrow
+fastparquet
+tqdm
+matplotlib
+gradio
 
 
 ================================================
@@ -226,110 +58,38 @@ FILE: configs/app_config.yaml
 ================================================
 FILE: configs/config.yaml
 ================================================
-#=====================#
-#     PATHS SETUP     #
-#=====================#
-train_data_path: data/simple_stories_filtered.txt
-val_data_path: null
-models_dir: models/
-checkpoint_path: null
-glove_embeddings_path: null
-
-#==========================#
-#     GENERAL SETTINGS     #
-#==========================#
 seed: 1212
-training_mode: varlen # [ sliding or varlen or bptt ]
 use_accelerator: true
+runs_dir: "runs/"
 
-#=======================#
-#     DATA SETTINGS     #
-#=======================#
-seq_len: 170
-min_seq_len: 20
-max_vocab_size: 25000
+data:
+  train_data_path: "data/processed/tiny_stories.txt"
+  val_data_path: null
+  do_val_split: true
+  val_split_ratio: 0.1
+  val_split_shuffle: true
+  max_vocab_size: 25000
+  tokenizer_lowercase: true
 
-get_data_params:
-  min_token_thresh: 15
-  chunk_separator: "\n\n"
-  entity_replacement: false
-  add_special_tokens: true
-  shuffle: true
-  preprocess: true
-  # Preprocessing params
-  preprocess_kwargs:
-   lowercase: true
-   remove_parenthesized_content: false
-   punctuations: keep # [keep or remove or keep_essential]
-   essential_punctuations: [".", "'", ","]
-   collapse_multiple_dots: false
-   remove_non_ascii: true
-   bucketize_numbers: true
- 
-do_val_split: true
-val_split_ratio: 0.1
-val_split_shuffle: true
+model:
+  embedding_dim: 300
+  hidden_dim: 300
+  num_layers: 1
+  tie_weights: true
+  emb_dropout_p: 0.2
+  rnn_dropout_p: 0.25
+  out_dropout_p: 0.2
 
-tokenizer_lowercase: true
-
-#=========================#
-#     TRAINING PARAMS     #
-#=========================#
-n_epochs: 60
-batch_size: 128
-enable_mixed_precision: true
-
-early_stopping_epsilon: 0.0008
-early_stopping_patience: 4
-grad_clip_norm: 1.0
-
-#=======================================#
-#     PRETRAINED EMBEDDING SETTINGS     #
-#=======================================#
-use_glove_embeddings: false
-glove_dim: 200
-
-#======================#
-#     MODEL PARAMS     #
-#======================#
-model_params:
- rnn_type: GRU
- embedding_dim: 300
- hidden_dim: 600
- num_layers: 1
- tie_weights: true
- 
- emb_dropout_p: 0.2
- rnn_dropout_p: 0.25
- out_dropout_p: 0.2
- 
- proj_nonlinearity: false
- freeze_pretrained_embeddings: true
-
-#=================================#
-#     LEARNING RATE SCHEDULER     #
-#=================================#
-lr_scheduler_type: CosineAnnealingLR # [ CosineAnnealingLR or ReduceLROnPlateau]
-
-lr_scheduler_params:
- ReduceLROnPlateau:
-  factor: 0.5
-  patience: 2
-  threshold: 0.006
- CosineAnnealingLR:
-  eta_min: 0.00005
-#==========================#
-#     OPTIMIZER PARAMS     #
-#==========================#
-optimizer_params:
+train:
+  seq_len: 170
+  batch_size: 128
+  n_epochs: 60
   lr: 0.001
   weight_decay: 0.01
-
-
-================================================
-FILE: configs/train_config.yaml
-================================================
-data_path = data/processed/
+  eta_min: 0.00005
+  early_stopping_patience: 4
+  grad_clip_norm: 1.0
+  enable_mixed_precision: true
 
 
 ================================================
@@ -484,196 +244,210 @@ print(f"Data successfully downloaded, filtered, and saved to {processed_file}")
 FILE: scripts/train.py
 ================================================
 import os
+import logging
+from datetime import datetime
 from argparse import ArgumentParser
 
 import torch
+import torch.nn as nn
 from torch.utils.data import DataLoader
 
-import src.dataset as wf_dataset
-from src.config import resolve_device, read_config, ensure_dirs, model_summary
-from src.data import get_data, train_val_split, summarize_data
+from src.config import WordFlowConfig
+from src.data import get_data
+from src.dataset import TruncatedBPTTDataset, bptt_collate
 from src.tokenizer import Tokenizer
 from src.model import WordFlowModel, detach_hidden
-from src.pretrained_embeddings import get_glove_embeddings
 from src.trainer import trainer
 
+
+def setup_run_directory_and_logger(config: WordFlowConfig) -> str:
+    """Creates the timestamped run directory and configures logging"""
+    run_name = datetime.now().strftime("wordflow_run_%Y_%m_%d_%H_%M")
+    run_dir = os.path.join(config.runs_dir, run_name)
+    os.makedirs(run_dir, exist_ok=True)
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s | %(levelname)s | %(message)s",
+        datefmt="%H:%M:%S",
+        handlers=[
+            logging.FileHandler(os.path.join(run_dir, "training.log")),
+            logging.StreamHandler()
+        ]
+    )
+    return run_dir
+
 def get_args():
-    parser = ArgumentParser(description="*** WordFlow: Word-Level Language Modeling with RNNs ***")
-    parser.add_argument("--config_path", type=str, default="config/config.yaml",
-                        help="path to config file (yaml)")
-    parser.add_argument("--training_mode", choices=["bptt", "sliding", "varlen"], default=None,
-                        help=("training modes 'bptt' (Truncated BPTT), 'sliding'" 
-                              "(Sliding Sequence Windows) or 'varlen' (Variable Lenght Sequences)"))
-    parser.add_argument("--n_epochs", type=int, default=None,
-                        help="number of training epochs")
-    parser.add_argument("--batch_size", type=int, default=None,
-                        help="training batch size")
-    parser.add_argument("--use_accelerator", type=bool, default=None,
-                        help="use available accelerator or cpu")
-    parser.add_argument("--seed", type=int, default=None,
-                        help="random seed")
-    parser.add_argument("--dry_run", action="store_true",
-                        help="run one step of training for testing")
+    parser = ArgumentParser(description="WordFlow: Word-Level Language Modeling with RNNs")
+    parser.add_argument("--config_path", type=str, default="configs/config.yaml",
+                        help="Path to config file (yaml)")
     return parser.parse_args()
 
-def train(config):
-    #=======================#
-    #     Configuration     #
-    #=======================#
-    # validate_config(config)
-    device = resolve_device(config["use_accelerator"])
-    ensure_dirs(config)
+def main():
+    args = get_args()
     
-    #======================#
-    #     Prepare Data     #
-    #======================#
-    train_corpus = get_data(
-        config["train_data_path"],
-        **config["get_data_params"],
-        random_seed = config["seed"],
-    )
-    evaluate = False
-    config["training_data_info"] = summarize_data(train_corpus)
-    print(f"*** {' | '.join(f'{k}: {v:,}' for k,v in config["training_data_info"].items())} ***")
+    config = WordFlowConfig.from_yaml(args.config_path)
     
-    if config["val_data_path"] is not None:
-        val_corpus = get_data(config["val_data_path"])
-        evaluate = True
-        
-    elif config["do_val_split"]:
-        train_corpus, val_corpus = train_val_split(
-            train_corpus, 
-            config["val_split_ratio"], 
-            config["val_split_shuffle"],
-            config["seed"]
-        )
-        evaluate = True
-        
-    #======================#
-    #     Tokenization     #
-    #======================#        
+    run_dir = setup_run_directory_and_logger(config)
+    logger = logging.getLogger(__name__)
+    
+    config.save_json(os.path.join(run_dir, "config.json"))
+    
+    device = torch.device("cuda" if config.use_accelerator and torch.cuda.is_available() else "cpu")
+    torch.manual_seed(config.seed)
+    logger.info(f"Using device: {device.type}")
+
+    logger.info("Loading corpus...")
+    train_corpus = get_data(config.data.train_data_path)
+    
+    val_corpus = None
+    if config.data.do_val_split:
+        split_idx = int(len(train_corpus) * (1 - config.data.val_split_ratio))
+        val_corpus = train_corpus[split_idx:]
+        train_corpus = train_corpus[:split_idx]
+
+    logger.info("Building vocabulary...")
     tokenizer = Tokenizer(
-        max_tokens = config["max_vocab_size"], 
-        lowercase = config["tokenizer_lowercase"]
+        max_tokens=config.data.max_vocab_size, 
+        lowercase=config.data.tokenizer_lowercase
     )
-    tokenizer.build_vocab(train_corpus)
-    train_ids = [tokenizer.encode(d) for d in train_corpus]
+
+    tokenizer.build_vocab([train_corpus])
     
-    if evaluate:
-        val_ids = [tokenizer.encode(d) for d in val_corpus]
+    train_ids = tokenizer.encode(train_corpus)
+    logger.info(f"Training corpus length: {len(train_ids):,} tokens")
+
+    train_ds = TruncatedBPTTDataset(
+        train_ids, 
+        batch_size=config.train.batch_size, 
+        seq_len=config.train.seq_len
+        )
     
-    #============================#
-    #     Prepare DataLoader     #
-    #============================#
-    modes = {
-        "bptt": {
-            "class": "TruncatedBPTTDataset",
-            "args": ["batch_size", "seq_len"],
-            "collate": "bptt_collate"
-            },
-        "sliding": {
-            "class": "SlidingWindowDataset",
-            "args": ["seq_len", "min_seq_len"],
-            "collate": "sliding_collate"
-        },
-        "varlen": {
-            "class": "VariableLengthDataset",
-            "args": ["seq_len"],
-            "collate": "varlen_collate"
-        },
-    }
-    train_ds = getattr(wf_dataset, modes[config["training_mode"]]["class"])(
-        train_ids, **{k:config[k] for k in modes[config["training_mode"]]["args"]}
-    )
-    train_ds.print_info()
-    
+    # we already getting (N, L) from dataset, so no need for batching
     train_loader = DataLoader(
         train_ds, 
-        batch_size = 1 if config["training_mode"] == "bptt" else config["batch_size"], 
-        shuffle = False if config["training_mode"] == "bptt" else True,
-        pin_memory = True, 
-        collate_fn = getattr(wf_dataset, modes[config["training_mode"]]["collate"])
-    )
-    
-    if evaluate:
-        val_ds = getattr(wf_dataset, modes[config["training_mode"]]["class"])(
-            val_ids, **{k:config[k] for k in modes[config["training_mode"]]["args"]}
+        batch_size=1, 
+        shuffle=False, 
+        pin_memory=True, 
+        collate_fn=bptt_collate
         )
-        val_loader = DataLoader(
-            val_ds, 
-            batch_size = 1 if config["training_mode"] == "bptt" else config["batch_size"], 
-            shuffle = False,
-            pin_memory = True, 
-            collate_fn = getattr(wf_dataset, modes[config["training_mode"]]["collate"])
-        )
-        
-    #===========================#
-    #     Instantiate Model     #
-    #===========================#
     
-    if config["use_glove_embeddings"]:
-        try:
-            print(f"*** loading pretrained GloVe word embeddings ***")
-            pretrained_embeddings = get_glove_embeddings(
-                config["glove_embeddings_path"], config["glove_dim"], tokenizer.get_vocab()
+    val_loader = None
+    if val_corpus:
+        val_ids = tokenizer.encode(val_corpus)
+        val_ds = TruncatedBPTTDataset(
+            val_ids, batch_size=config.train.batch_size, seq_len=config.train.seq_len
             )
-            pretrained_embeddings = torch.tensor(pretrained_embeddings, dtype=torch.float32)
-        except Exception as e:
-            print(f"*** failed to load pretrained embedding matrix. initializing with random values: {e} ***")
-        
-    torch.manual_seed(config["seed"])
+        val_loader = DataLoader(
+            val_ds, batch_size=1, shuffle=False, pin_memory=True, collate_fn=bptt_collate
+            )
+
     model = WordFlowModel(
-        tokenizer.get_vocab_size(), 
-        **config["model_params"], 
-        pretrained_embedding_matrix = pretrained_embeddings if config["use_glove_embeddings"] else None
+        vocab_size=tokenizer.get_vocab_size(),
+        embedding_dim=config.model.embedding_dim,
+        hidden_dim=config.model.hidden_dim,
+        num_layers=config.model.num_layers,
+        tie_weights=config.model.tie_weights,
+        emb_dropout_p=config.model.emb_dropout_p,
+        rnn_dropout_p=config.model.rnn_dropout_p,
+        out_dropout_p=config.model.out_dropout_p,
+        padding_idx=tokenizer.token_to_id("<pad>")
     ).to(device)
+
+    # all timesteps within sequences are actual word tokens and not padding, but we pass this anyway!
+    loss_fn = nn.CrossEntropyLoss(ignore_index=tokenizer.token_to_id("<pad>"))
     
-    print(model_summary(model))
-    
-    #=======================#
-    #     Training Loop     #
-    #=======================#
-    loss_fn = torch.nn.CrossEntropyLoss(
-        ignore_index = tokenizer.token_to_id("<pad>")
-    )
     optimizer = torch.optim.AdamW(
-        model.parameters(), **config["optimizer_params"]
-    )
-
-    scheduler = getattr(torch.optim.lr_scheduler, config["lr_scheduler_type"])(
-        optimizer,
-        **{
-            **config["lr_scheduler_params"][config["lr_scheduler_type"]],
-            **({"T_max": config["n_epochs"]} if config["lr_scheduler_type"] == "CosineAnnealingLR" else {})
-        }
-    )
-
-    model = trainer(
-        model, optimizer, config, device, scheduler,
-        detach_hidden, train_loader, loss_fn, tokenizer,
-        val_loader = val_loader if evaluate else None
+        model.parameters(), 
+        lr=config.train.lr, 
+        weight_decay=config.train.weight_decay
     )
     
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, 
+        T_max=config.train.n_epochs, 
+        eta_min=config.train.eta_min
+    )
+
+    logger.info("Beginning training loop...")
+    trainer(
+        model=model,
+        optimizer=optimizer,
+        scheduler=scheduler,
+        loss_fn=loss_fn,
+        train_loader=train_loader,
+        val_loader=val_loader,
+        config=config,
+        device=device,
+        run_dir=run_dir,
+        tokenizer=tokenizer,
+        detach_hidden=detach_hidden
+    )
+
 if __name__ == "__main__":
-    ## GET CLI ARGS ##
-    args = get_args()
-    ## READ CONFIG FILE ##
-    config = read_config(args.config_path)
-    ## OVERRIDE CONFIG WITH CLI ARGS ##
-    for key in [
-        "training_mode", "n_epochs", "batch_size", "use_accelerator", "seed", "dry_run"
-    ]:
-        val = getattr(args, key)
-        if val is not None:
-            config[key] = val
-    ## TRAINING PROCESS ##
-    train(config)
+    main()
 
 
 ================================================
 FILE: src/__init__.py
 ================================================
 [Empty file]
+
+
+================================================
+FILE: src/config.py
+================================================
+import yaml
+import json
+from pydantic import BaseModel, Field
+
+class DataConfig(BaseModel):
+    train_data_path: str
+    val_data_path: str | None = None
+    do_val_split: bool = True
+    val_split_ratio: float = 0.1
+    val_split_shuffle: bool = True
+    max_vocab_size: int = 25000
+    tokenizer_lowercase: bool = False
+
+class ModelConfig(BaseModel):
+    embedding_dim: int = 300
+    hidden_dim: int = 300
+    num_layers: int = 1
+    tie_weights: bool = True
+    emb_dropout_p: float = 0.2
+    rnn_dropout_p: float = 0.25
+    out_dropout_p: float = 0.2
+
+class TrainConfig(BaseModel):
+    seq_len: int = 170
+    batch_size: int = 128
+    n_epochs: int = 60
+    lr: float = 0.001
+    weight_decay: float = 0.01
+    eta_min: float = 0.00005
+    early_stopping_patience: int = 4
+    grad_clip_norm: float = 1.0
+    enable_mixed_precision: bool = True
+
+class WordFlowConfig(BaseModel):
+    seed: int = 1212
+    use_accelerator: bool = True
+    runs_dir: str = "runs/"
+    
+    data: DataConfig
+    model: ModelConfig
+    train: TrainConfig
+
+    @classmethod
+    def from_yaml(cls, yaml_path: str) -> "WordFlowConfig":
+        with open(yaml_path, "r", encoding="utf-8") as f:
+            config_dict = yaml.safe_load(f)
+        return cls(**config_dict)
+
+    def save_json(self, save_path: str):
+        with open(save_path, "w", encoding="utf-8") as f:
+            json.dump(self.model_dump(), f, indent=4)
 
 
 ================================================
@@ -687,23 +461,43 @@ logger = logging.getLogger(__name__)
 
 _PUNK_TABLE = str.maketrans({p: f" {p} " for p in string.punctuation})
 
-def text_preprocessor(text:str) -> str:
+def text_preprocessor(text: str) -> str:
+    """
+    Preprocesses raw text for WordFlow tokenization.
+
+    Args:
+        text (str): The raw input text corpus.
+        
+    Returns:
+        str: Preprocessed and normalized text ready for tokenization.
+        
+    WordFlow: Word-Level Language Modeling with RNNs GiTHub.com/HooM4N/WordFlow
+    """
     text = text.lower()
     text = re.sub(r"\n+", " \n ", text)
-    text = text.replace("\n"," BREAKLINE ").replace("<eos>"," EOSMARKER ")
+    text = text.replace("\n", " BREAKLINE ").replace("<eos>", " EOSMARKER ")
     text = text.translate(_PUNK_TABLE)
     return text.replace(" EOSMARKER ", " <eos> ")
 
-def get_data(
-        data_path:str,   
-) -> str:
+def get_data(data_path: str) -> str:
+    """
+    Loads and preprocesses text data from a given file path.
+    
+    Args:
+        data_path (str): Path to the raw text file (e.g., tiny_stories.txt).
+        
+    Returns:
+        str: Preprocessed text corpus as a single continuous string.
+        
+    WordFlow: Word-Level Language Modeling with RNNs GiTHub.com/HooM4N/WordFlow
+    """
     try:
-        with open(data_path) as f:
+        with open(data_path, 'r', encoding='utf-8') as f:
             corpus = f.read()
         return text_preprocessor(corpus)
     except Exception as e:
-        logger.error(f"couldn't open data file: {e}")
-        return None
+        logger.error(f"Couldn't open data file at {data_path}: {e}")
+        return ""
 
 
 ================================================
@@ -713,6 +507,20 @@ import torch
 from torch.utils.data import Dataset
 
 class TruncatedBPTTDataset(Dataset):
+    """
+    Dataset for Truncated Backpropagation Through Time (BPTT).
+    
+    Transforms a 1D sequence of tokenized corpus IDs into `batch_size` 
+    continuous, parallel streams. Each call to `__getitem__` returns a 
+    slice of length `seq_len` moving sequentially forward through the text.
+    
+    Args:
+        corpus_ids (list[int]): Tokenized corpus as a list of integer IDs.
+        batch_size (int, optional): Number of parallel streams. Defaults to 256.
+        seq_len (int, optional): Length of the sequence per stream. Defaults to 128.
+        
+    WordFlow: Word-Level Language Modeling with RNNs GiTHub.com/HooM4N/WordFlow
+    """
 
     def __init__(
         self,
@@ -720,37 +528,89 @@ class TruncatedBPTTDataset(Dataset):
         batch_size: int = 256,
         seq_len: int = 128,
     ):
-
         full_seq = torch.tensor(corpus_ids, dtype=torch.long)
-        # trim to multiple of batch_size
+        
+        # Trim sequence length to be evenly divisible by batch_size
         stream_len = full_seq.size(0) // batch_size
         full_seq = full_seq[:stream_len * batch_size]
-        full_seq = full_seq.view(batch_size, stream_len)
+        
+        # Reshape into (batch_size, stream_len)
+        self.full_seq = full_seq.view(batch_size, stream_len)
 
         self.seq_len = seq_len
         self.batch_size = batch_size
-        self.full_seq = full_seq
         self.stream_len = full_seq.size(1) - 1
 
     def __len__(self) -> int:
         return self.stream_len // self.seq_len
 
-    def __getitem__(
-        self, idx: int
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
         start = idx * self.seq_len
         end = start + self.seq_len
+        
+        # Returns input (X) and shifted target (Y)
         return (
-            self.full_seq[:, start:end],       # input
-            self.full_seq[:, start + 1 : end + 1],  # target
+            self.full_seq[:, start:end],           # X
+            self.full_seq[:, start + 1 : end + 1], # Y
         )
 
 
 def bptt_collate(
     batch: list[tuple[torch.Tensor, torch.Tensor]]
-) -> tuple[torch.Tensor, torch.Tensor, None]:
+) -> tuple[torch.Tensor, torch.Tensor]:
     X, Y = batch[0]
-    return X, Y, None
+    return X, Y
+
+
+================================================
+FILE: src/evaluate.py
+================================================
+import torch
+import torch.nn as nn
+from typing import Callable
+from torch.utils.data import DataLoader
+
+def evaluate(
+    model: nn.Module, 
+    eval_loader: DataLoader, 
+    loss_fn: Callable, 
+    device: torch.device, 
+    detach_hidden: Callable,
+    enable_mixed_precision: bool = True
+) -> float:
+    """
+    Evaluates the model on the validation dataset using Truncated BPTT.
+    
+    Args:
+        model (nn.Module): The WordFlow model.
+        eval_loader (DataLoader): DataLoader providing (X, Y) sequence batches.
+        loss_fn (Callable): The criterion (e.g., CrossEntropyLoss).
+        device (torch.device): Device to perform computations on.
+        detach_hidden (Callable): Function to detach the GRU hidden state.
+        enable_mixed_precision (bool): Whether to use torch.amp.
+        
+    Returns:
+        float: The average validation loss across the dataset.
+        
+    WordFlow: Word-Level Language Modeling with RNNs GiTHub.com/HooM4N/WordFlow
+    """
+    model.eval()
+    total_loss = 0.0
+    batch_size = eval_loader.dataset.batch_size
+    hidden = model.init_hidden(batch_size)
+    
+    with torch.no_grad():
+        for X, Y in eval_loader:
+            X, Y = X.to(device), Y.to(device)
+            hidden = detach_hidden(hidden)
+            
+            with torch.autocast(device_type=device.type, dtype=torch.float16, enabled=enable_mixed_precision):
+                logits, hidden = model(X, hidden)
+                loss = loss_fn(logits, Y)
+                
+            total_loss += loss.item()
+            
+    return total_loss / len(eval_loader)
 
 
 ================================================
@@ -759,91 +619,100 @@ FILE: src/inference.py
 import torch
 from .tokenizer import Tokenizer
 from .model import WordFlowModel
-from .preprocess import text_preprocess
+from .data import text_preprocessor
 
 @torch.no_grad()
 def generate(
     model: WordFlowModel, 
     tokenizer: Tokenizer, 
-    config: dict[str, int | float | str], 
     device: torch.device,
-    init_word: str = None, 
+    init_word: str = "<bos>", 
     max_new_tokens: int = 32, 
     temperature: float = 0.9,
     post_process: bool = True,
     seed: int = None
 ) -> str:
     """
-    ==================================================================
-    == Autoregressive Word Generation (GiTHUB.com/HoomM4N/WordFlow) ==
-    ==================================================================
-    - Starts from given init word 
-    - Samples tokens using temperature scaling
-    - Skips <unk>, replaces <eos> with newline  
+    Autoregressive Word Generation.
+    
+    Starts from a given initial word, samples tokens using temperature scaling,
+    and formats the output text.
+    
+    WordFlow: Word-Level Language Modeling with RNNs GiTHub.com/HooM4N/WordFlow
     """
     if seed is not None:
         torch.manual_seed(seed)
-    model.eval()
-    hidden = model.init_hidden(1)
-    tkns = ["<unk>", "<eos>", init_word]
-    unk_id, eos_id, init_idx = [tokenizer.token_to_id(t) for t in tkns]
-    if init_idx != unk_id:
-        input_ = torch.tensor(init_idx, dtype=torch.long).reshape(1,-1).to(device)
-    else:
-        print(f"*** {init_word} is not in vocab, picking a random initial word... ***")
-        input_ = torch.randint(low=5, high=len(tokenizer.get_vocab()), size=(1,1), dtype=torch.long).to(device)
-        init_word = tokenizer.id_to_token(input_.item())
         
+    model.eval()
+    hidden = model.init_hidden(batch_size=1)
+    
+    unk_id = tokenizer.token_to_id("<unk>")
+    eos_id = tokenizer.token_to_id("<eos>")
+    init_idx = tokenizer.token_to_id(init_word)
+    
+    if init_idx == unk_id:
+        print(f"*** '{init_word}' is not in vocab, picking a random initial word... ***")
+        init_idx = torch.randint(low=5, high=tokenizer.get_vocab_size(), size=(1,)).item()
+        init_word = tokenizer.id_to_token(init_idx)
+        
+    input_ = torch.tensor([[init_idx]], dtype=torch.long, device=device)
     generated_words = [init_word]
+    
     for _ in range(max_new_tokens):
-        output, hidden = model(input_, hidden)
-        probs = output.squeeze().div(temperature).exp().cpu()
+        logits, hidden = model(input_, hidden)
+        
+        # model outputs (N, vocab_size, L) -> we want the last step (L)
+        last_step_logits = logits[0, :, -1] 
+        
+        probs = (last_step_logits / temperature).softmax(dim=0).cpu()
 
         while True:
-            token_idx = torch.multinomial(probs, 1)[0]
+            token_idx = torch.multinomial(probs, 1).item()
             if token_idx != unk_id: 
                 break
         
         if token_idx == eos_id:
             break
+            
         input_.fill_(token_idx)
         generated_words.append(tokenizer.id_to_token(token_idx))
         
     text = " ".join(generated_words)
-    return post_process_fn(text) if post_process else text
-
-def post_process_fn(text:str) -> str:
-    return text.replace("<newline>", "\n").replace("<eos>", "")
+    
+    if post_process:
+        text = text.replace(" \n ", "\n").replace("<eos>", "")
+        
+    return text
     
 @torch.no_grad()
 def predict_next_word(
     model: WordFlowModel, 
     tokenizer: Tokenizer, 
-    config: dict[str, int | float | str], 
     device: torch.device, 
     context: str = "it is", 
     top_k: int = 5,
-    preprocess_kwargs: dict = None,
 ) -> dict[str, float]:
     """
-    ====================================================================
-    == Next Word Probability Prediction (GiTHUB.com/HoomM4N/WordFlow) ==
-    ====================================================================
-    - Returns top k candidate words with their probabilities given a context
+    Next Word Probability Prediction.
+    
+    Returns top k candidate words with their probabilities given a context phrase.
+    
+    WordFlow: Word-Level Language Modeling with RNNs GiTHub.com/HooM4N/WordFlow
     """
     model.eval()
-    hidden = model.init_hidden(1)
-    tkns = ["<unk>", "<eos>"]
-    unk_id, eos_id = [tokenizer.token_to_id(t) for t in tkns]
+    hidden = model.init_hidden(batch_size=1)
 
-    if preprocess_kwargs is not None:
-        context = text_preprocess(context, **preprocess_kwargs)
-    else:
-        context = text_preprocess(context)
+    context = text_preprocessor(context)
     context_ids = tokenizer.encode(context)
-    input_ = torch.tensor(context_ids, dtype=torch.long).reshape(1,-1).to(device)
-    output, _ = model(input_, hidden) 
-    top_probs, top_ids = torch.topk(torch.softmax(output[0,:,-1].cpu(), dim=0), top_k)
+    
+    input_ = torch.tensor([context_ids], dtype=torch.long, device=device)
+    logits, _ = model(input_, hidden) 
+    
+    # Extract the logits for the final time step
+    last_step_logits = logits[0, :, -1]
+    
+    top_probs, top_ids = torch.topk(last_step_logits.softmax(dim=0).cpu(), top_k)
+    
     return {
         tokenizer.id_to_token(i.item()): round(p.item(), 2) 
         for i, p in zip(top_ids, top_probs)
@@ -855,20 +724,30 @@ FILE: src/model.py
 ================================================
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 class WordFlowModel(nn.Module):
     """
-    =================================================
-    == WordFlow Model (GiTHUB.com/HooM4N/WordFlow) ==
-    =================================================
+    Recurrent Neural Network Model for Word-Level Language Modeling.
+    
+    Args:
+        vocab_size (int): Size of the tokenizer's vocabulary.
+        embedding_dim (int, optional): Dimensionality of word embeddings. Defaults to 300.
+        hidden_dim (int, optional): Dimensionality of GRU hidden states. Must equal 
+                                    `embedding_dim` if `tie_weights` is True. Defaults to 300.
+        num_layers (int, optional): Number of stacked GRU layers. Defaults to 1.
+        rnn_dropout_p (float, optional): Dropout between GRU layers. Defaults to 0.25.
+        emb_dropout_p (float, optional): Dropout after Embedding layer. Defaults to 0.2.
+        out_dropout_p (float, optional): Dropout before final Linear layer. Defaults to 0.2.
+        tie_weights (bool, optional): Whether to share embedding and output weights. Defaults to True.
+        padding_idx (int, optional): Vocabulary padding index. Defaults to 0.
+        
+    WordFlow: Word-Level Language Modeling with RNNs GiTHub.com/HooM4N/WordFlow
     """
     def __init__(
         self, 
         vocab_size: int, 
         embedding_dim: int = 300, 
-        hidden_dim: int = 512, 
+        hidden_dim: int = 300, 
         num_layers: int = 1,
         rnn_dropout_p: float = 0.25, 
         emb_dropout_p: float = 0.2, 
@@ -881,99 +760,83 @@ class WordFlowModel(nn.Module):
         self.num_layers = num_layers
         self.tie_weights = tie_weights
         
+        if tie_weights and embedding_dim != hidden_dim:
+            raise ValueError("When tie_weights=True, embedding_dim must equal hidden_dim.")
+        
         self.embedding = nn.Embedding(vocab_size, embedding_dim, padding_idx)
-            
-        self.embedding_dim = self.embedding.embedding_dim
         self.emb_dropout = nn.Dropout(emb_dropout_p)
         
         self.rnn = nn.GRU(
-            self.embedding_dim, 
-            hidden_dim, 
-            num_layers, 
+            input_size=embedding_dim, 
+            hidden_size=hidden_dim, 
+            num_layers=num_layers, 
             batch_first=True, 
-            dropout = rnn_dropout_p if num_layers > 1 else 0
+            dropout=rnn_dropout_p if num_layers > 1 else 0.0
         )
         self.out_dropout = nn.Dropout(out_dropout_p)
 
+        # Classification Head
+        self.fc = nn.Linear(hidden_dim, vocab_size, bias=not tie_weights) 
         if tie_weights: 
-            self.fc = nn.Linear(embedding_dim, vocab_size, bias=False) 
             self.fc.weight = self.embedding.weight 
-            self.use_proj = hidden_dim != embedding_dim 
-            if self.use_proj: 
-                self.proj = nn.Linear(hidden_dim, embedding_dim) 
-        else: 
-            self.fc = nn.Linear(hidden_dim, vocab_size)
-            self.use_proj = False
             
-        self.init_weights()
+        self._init_weights()
 
-    def init_weights(self):
+    def _init_weights(self):
+        """Initializes model weights uniformly."""
         initrange = 0.1
-        
-        if self.use_proj:
-            nn.init.uniform_(self.proj.weight, -initrange, initrange)
-            nn.init.zeros_(self.proj.bias)
-            
         if not self.tie_weights:
             nn.init.uniform_(self.fc.weight, -initrange, initrange)
             nn.init.zeros_(self.fc.bias)
             
         nn.init.uniform_(self.embedding.weight, -initrange, initrange)
         
-    def init_hidden(
-        self, batch_size: int
-    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
+    def init_hidden(self, batch_size: int) -> torch.Tensor:
         w = next(self.parameters())
-        if self.rnn_type == "LSTM":
-            return (w.new_zeros((self.num_layers, batch_size, self.hidden_dim)),
-                    w.new_zeros((self.num_layers, batch_size, self.hidden_dim)))
-        else:
-            return w.new_zeros((self.num_layers, batch_size, self.hidden_dim))
+        return w.new_zeros((self.num_layers, batch_size, self.hidden_dim))
 
     def forward(
         self, 
-        x: torch.Tensor, # (N, L)
-        hidden: torch.Tensor | tuple[torch.Tensor, torch.Tensor] = None, # GRU: (num_layers, N, H) 
-        padding_mask: torch.Tensor = None, # (N, L) , 0 -> padding tokens & 1 -> valid tokens 
-    ) -> tuple[torch.Tensor, torch.Tensor | tuple[torch.Tensor, torch.Tensor]]:
-
-        # Embedding
-        x = self.embedding(x) # (N, L, E)
+        x: torch.Tensor, 
+        hidden: torch.Tensor = None, 
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """
+        Forward pass of the WordFlow Model.
+        
+        Args:
+            x (torch.Tensor): Input tensor of token IDs, shape (N, L).
+            hidden (torch.Tensor, optional): Previous GRU hidden state. 
+                                             Defaults to None.
+            
+        Returns:
+            tuple[torch.Tensor, torch.Tensor]:
+                - Output logits of shape (N, vocab_size, L)
+                - Updated hidden state of shape (num_layers, N, hidden_dim)
+        """
+        # 1. Embedding
+        x = self.embedding(x)  # (N, L, E)
         x = self.emb_dropout(x)
 
-        # RNN
-        if padding_mask is not None:
-            x = pack_padded_sequence(
-                x, padding_mask.sum(dim=1).cpu(), batch_first=True, enforce_sorted=False
-            )
-        x, hidden = self.rnn(x, hidden) # x (packed if padded): (N, L, H), hidden (GRU): (num_layers, N, H)
-        if padding_mask is not None:
-            x, _ =  pad_packed_sequence(
-                x, batch_first=True, total_length=padding_mask.size(1)
-            )
+        # 2. RNN
+        x, hidden = self.rnn(x, hidden)  # x: (N, L, H), hidden: (num_layers, N, H)
         
-        # Projection
-        if self.use_proj:
-            x = self.proj(x) # (N, L, E)
-            if self.proj_nonlinearity:
-                x = F.gelu(x)
-            
-        # Classification Head
+        # 3. Classification Head
         x = self.out_dropout(x)
-        return (
-            self.fc(x).permute(0, 2, 1), # (N, vocab_size, L)
-            hidden # (GRU): (num_layers, N, H)
-        )
+        logits = self.fc(x) # (N, L, vocab_size)
+        
+        # PyTorch CrossEntropyLoss expects (N, C, L) for multidimensional inputs
+        logits = logits.permute(0, 2, 1) # (N, vocab_size, L)
+        
+        return logits, hidden
 
-def detach_hidden(
-    hidden: tuple[torch.Tensor, torch.Tensor]
-) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
+
+def detach_hidden(hidden: torch.Tensor) -> torch.Tensor:
     """
-    Detach hidden states from the current graph
+    Detaches the hidden state from the current computation graph.
+       
+    WordFlow: Word-Level Language Modeling with RNNs GiTHub.com/HooM4N/WordFlow
     """
-    if isinstance(hidden, torch.Tensor):
-        return hidden.detach()
-    return tuple(detach_hidden(h) for h in hidden)
+    return hidden.detach()
 
 
 ================================================
@@ -1118,397 +981,142 @@ class Tokenizer:
 ================================================
 FILE: src/trainer.py
 ================================================
-import os, json, math
-from tqdm import tqdm
-from typing import Callable
+import os
+import json
+import math
+import logging
 from datetime import datetime
+from typing import Callable
 
 import torch
 import torch.nn as nn
+from torch.utils.data import DataLoader
 
+from .evaluate import evaluate
 from .tokenizer import Tokenizer
-from .config import write_config
+from .config import WordFlowConfig
 
-#=======================#
-#     Training Loop     #
-#=======================#
+logger = logging.getLogger(__name__)
 
 def trainer(
-    model: torch.nn.Module,
+    model: nn.Module,
     optimizer: torch.optim.Optimizer,
-    config: dict[str, int | float | str],
-    device: torch.device, 
     scheduler: torch.optim.lr_scheduler.LRScheduler,
-    detach_hidden: Callable, 
-    train_loader: torch.utils.data.DataLoader,
     loss_fn: Callable,
+    train_loader: DataLoader,
+    val_loader: DataLoader | None,
+    config: WordFlowConfig,
+    device: torch.device,
+    run_dir: str,
     tokenizer: Tokenizer,
-    val_loader: torch.utils.data.DataLoader = None,
-) -> torch.nn.Module:
+    detach_hidden: Callable,
+) -> nn.Module:
     """
-    =======================================================
-    == Trainer for WordFlow (GiTHUB.com/HooM4N/WordFlow) ==
-    =======================================================
+    Main training loop for Truncated BPTT Word-Level Modeling.
+    
     Features:
-        - Mixed Precision Training
-        - Experiment Tracking: save per-run configs, logs & best checkpoint
-        - Early Stopping
+        - Mixed Precision (AMP)
         - Gradient Clipping
-        - Restore Best Model
-        - Model Checkpoint
-        - Resume Training from Checkpoint
-    """
-    if config["checkpoint_path"] is not None:
-        model.load_state_dict(
-            torch.load(config["checkpoint_path"], map_location=device, weights_only=True)
-            )
-        print(f"*** Continue training from checkpoint ***")
+        - Cosine Annealing LR Scheduling
+        - Run artifact tracking (JSON logs, Model configs)
+        - Early stopping and graceful KeyboardInterrupt recovery
         
-    train_logs = {"train_loss":[] , "val_loss":[] , "val_metric":[], "lr":[], "epoch_time": []}
-    model.train()
-    config["enable_mixed_precision"] = device.type == "cuda"
-    scaler = torch.amp.GradScaler(enabled = config["enable_mixed_precision"])
-    best_loss, es_counter, best_epoch, best_ckpnt_path = float('inf'), 0, None, None
-    run_name = datetime.now().strftime("WordFlow_run_%m-%d_%H-%M")
-    print(f"*** Starting run {run_name} for {config["training_mode"].upper()} Language Modeling ***")
+    WordFlow: Word-Level Language Modeling with RNNs GiTHub.com/HooM4N/WordFlow
+    """
+    scaler = torch.amp.GradScaler(enabled=config.train.enable_mixed_precision)
+    train_logs = {"train_loss": [], "val_loss": [], "val_perplexity": [], "lr": [], "epoch_time": []}
+    
+    best_loss = float('inf')
+    es_counter = 0
+    best_epoch = 0
+    best_ckpnt_path = os.path.join(run_dir, "checkpoint_best.pt")
+    last_ckpnt_path = os.path.join(run_dir, "checkpoint_last.pt")
 
-    try: # return best artifacts on training interruption
-        for epoch in range(config["n_epochs"]):
+    logger.info(f"Starting training run in {run_dir}")
+    
+    try:
+        for epoch in range(config.train.n_epochs):
             epoch_start = datetime.now()
             model.train()
             total_loss = 0.0
-            hidden = model.init_hidden(config["batch_size"])
+            
+            hidden = model.init_hidden(train_loader.dataset.batch_size)
 
-            for X, Y, padding_mask in tqdm(train_loader, desc=f"Epoch {epoch+1}/{config["n_epochs"]}"):
+            for X, Y in train_loader:
                 X, Y = X.to(device), Y.to(device)
-                padding_mask = padding_mask.to(device) if padding_mask is not None else None
                 optimizer.zero_grad(set_to_none=True)
+                
                 hidden = detach_hidden(hidden)
+                
                 with torch.autocast(
-                    device_type=device.type, dtype=torch.float16, enabled = config["enable_mixed_precision"]
-                ):
-                    logits, hidden = model(
-                        X,
-                        hidden if config["training_mode"] == "bptt" else None,
-                        padding_mask,
-                    )
+                    device_type=device.type, 
+                    dtype=torch.float16, 
+                    enabled=config.train.enable_mixed_precision
+                    ):
+                    logits, hidden = model(X, hidden)
                     loss = loss_fn(logits, Y)
+                    
                 total_loss += loss.item()
                 scaler.scale(loss).backward()
+                
                 scaler.unscale_(optimizer)
-                nn.utils.clip_grad_norm_(model.parameters(), config["grad_clip_norm"])
+                nn.utils.clip_grad_norm_(model.parameters(), config.train.grad_clip_norm)
+                
                 scaler.step(optimizer)
                 scaler.update()
-                if config["dry_run"]:
-                    break
-    
-            # logger
-            train_logs["train_loss"].append(total_loss / len(train_loader))
-            if val_loader is not None:
+
+            # End of epoch calculations
+            avg_train_loss = total_loss / len(train_loader)
+            train_logs["train_loss"].append(avg_train_loss)
+            train_logs["lr"].append(optimizer.param_groups[0]['lr'])
+            
+            log_msg = f"Epoch {epoch + 1}/{config.train.n_epochs} | Train Loss: {avg_train_loss:.4f}"
+
+            if val_loader:
                 val_loss = evaluate(
-                    model, val_loader, loss_fn, device, config, detach_hidden
+                    model, val_loader, loss_fn, device, detach_hidden, config.train.enable_mixed_precision
                 )
                 train_logs["val_loss"].append(val_loss)
-                train_logs["val_metric"].append(math.exp(val_loss))
-            train_logs["lr"].append(optimizer.param_groups[0]['lr'])
+                train_logs["val_perplexity"].append(math.exp(val_loss))
+                log_msg += f" | Val Loss: {val_loss:.4f} | Val Perplexity: {math.exp(val_loss):.4f}"
+            
             train_logs["epoch_time"].append((datetime.now() - epoch_start).total_seconds())
-    
-            log_msg = (
-                f"\r Epoch {epoch + 1}/{config['n_epochs']}, "
-                f"train loss: {train_logs['train_loss'][-1]:.4f}, "
-            )
-            if val_loader is not None:
-                log_msg += (
-                    f"val loss: {train_logs['val_loss'][-1]:.4f}, "
-                    f"val perplexity: {train_logs['val_metric'][-1]:.4f}, "
-                )
-            log_msg += (
-                f"lr: {train_logs['lr'][-1]}, "
-                f"epoch time: {train_logs['epoch_time'][-1]:.2f}s"
-            )
-            print(log_msg)      
-    
-            # checkpoints
-            torch.save(
-                model.state_dict(), os.path.join(config["models_dir"], f"WordFlow_ckpnt_last.pt")
-            )
-            with open(os.path.join(config["models_dir"], "checkpoint_info.json"), "w") as f:
-                json.dump({
-                    "run_name": run_name,
-                    "epoch": epoch+1,
-                    "train_loss": train_logs['train_loss'][-1],
-                    "val_loss": train_logs['val_loss'][-1] if val_loader else None,
-                }, f)
+            logger.info(log_msg)
 
-            # lr scheduler
-            if val_loader is not None and isinstance(scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
-                scheduler.step(val_loss)
-            else:
-                scheduler.step()
+            # Checkpointing
+            torch.save(model.state_dict(), last_ckpnt_path)
 
-            if val_loader is not None:
-                # track best model
-                if val_loss < best_loss - config["early_stopping_epsilon"]:
+            scheduler.step()
+
+            # Early Stopping and Best Model tracking
+            if val_loader:
+                if val_loss < best_loss:
                     best_loss = val_loss
                     best_epoch = epoch + 1
-                    best_ckpnt_path = os.path.join(config["models_dir"], f"WordFlow_ckpnt_best.pt")
                     torch.save(model.state_dict(), best_ckpnt_path)
                     es_counter = 0
                 else:
                     es_counter += 1
         
-                # early stopping
-                if es_counter >= config["early_stopping_patience"]:
-                    print(f"*** Early Stopping triggered at epoch: {epoch+1} ***")
+                if es_counter >= config.train.early_stopping_patience:
+                    logger.info(f"Early Stopping triggered at epoch {epoch + 1}.")
                     break
-                
-    except KeyboardInterrupt:
-        print("\n*** Training interrupted by user ***")
-    
-    finally:
-        # restore best model
-        if best_ckpnt_path is not None:
-            model.load_state_dict(
-                torch.load(best_ckpnt_path, map_location=device, weights_only=True)
-            )
-            print(f"*** Restoring best model from epoch: {best_epoch} ***")
 
-        config["trained_epochs"] = epoch+1
-    
-        # save artifacts
-        run_dir = os.path.join(config["models_dir"], run_name)
-        os.makedirs(run_dir, exist_ok=True)
-        torch.save(model.state_dict(), os.path.join(run_dir, "WordFlow_ckpnt.pt"))
-        write_config(config, os.path.join(run_dir, f"config.yaml"))
-        with open(os.path.join(run_dir, f"training_logs.json"), "w") as f:
+    except KeyboardInterrupt:
+        logger.warning("Training interrupted by user (KeyboardInterrupt).")
+
+    finally:
+        # Wrap up training gracefully
+        if os.path.exists(best_ckpnt_path):
+            model.load_state_dict(torch.load(best_ckpnt_path, map_location=device, weights_only=True))
+            logger.info(f"Restored best model from epoch {best_epoch}.")
+
+        # Save final artifacts
+        with open(os.path.join(run_dir, "training_logs.json"), "w") as f:
             json.dump(train_logs, f, indent=2)
+            
         tokenizer.save(os.path.join(run_dir, "tokenizer.json"))
-        print(f"*** Run {run_name} completed. artifacts saved in: {run_dir} ***")
+        logger.info(f"Run completed. All artifacts saved in: {run_dir}")
     
     return model
-
-#===================#
-#     Evaluator     #
-#===================#
-
-@torch.no_grad()
-def evaluate(
-    model: torch.nn.Module, 
-    eval_loader: torch.utils.data.DataLoader, 
-    loss_fn: Callable, 
-    device: torch.device, 
-    config:  dict[str, int | float | str], 
-    detach_hidden: Callable,
-    disable_progress_bar: bool = True
-) -> float:
-    """
-    ====================================================================
-    == Evaluator Function for CausalLSTM (GiTHUB.com/HooM4N/WordFlow) ==
-    ====================================================================
-    """
-    model.eval()
-    total_loss = 0.0
-    hidden = model.init_hidden(config["batch_size"])
-    
-    for X, Y, padding_mask in tqdm(eval_loader, disable = disable_progress_bar):
-        X, Y = X.to(device), Y.to(device)
-        padding_mask = padding_mask.to(device) if padding_mask is not None else None
-        hidden = detach_hidden(hidden)
-        with torch.autocast(
-            device_type=device.type, dtype=torch.float16, enabled=config["enable_mixed_precision"]
-        ):
-            logits, hidden = model(
-                X,
-                hidden if config["training_mode"] == "bptt" else None,
-                padding_mask,
-            )
-            total_loss += loss_fn(logits, Y).item()
-    return total_loss / len(eval_loader)
-
-
-================================================
-FILE: src/utils/app_utils.py
-================================================
-import os, json, matplotlib, matplotlib.pyplot as plt
-import torch
-
-from ..config import read_config, resolve_device
-from ..tokenizer import Tokenizer
-from ..model import WordFlowModel
-
-def plot_training_logs(
-    train_logs: dict[str, list[float]], 
-    figsize: tuple=(14, 4)
-) -> matplotlib.figure.Figure:
-    """
-    ============================================
-    == Plot Training Logs (GitHUB.com/HooM4N) ==
-    ============================================
-    """
-    fig, ax = plt.subplots(1, 3, figsize=figsize)
-    has_eval = True if train_logs.get("val_loss") and len(train_logs['val_loss']) > 0 else False
-    
-    # Loss
-    ax[0].plot(train_logs['train_loss'], label="Train Loss")
-    
-    if has_eval:
-        ax[0].plot(train_logs['val_loss'], label="Validation Loss")
-    ax[0].set_title("Loss"); ax[0].set_xlabel("Epoch")
-    ax[0].set_ylabel("Loss"); ax[0].legend(); ax[0].grid(True)
-
-    # Validation metric
-    if has_eval:
-        ax[1].plot(train_logs['val_metric'], label="Validation Perpelexity", color="tab:orange")
-        ax[1].set_title("Validation Perpelexity"); ax[1].set_xlabel("Epoch")
-        ax[1].set_ylabel("Perpelexity"); ax[1].grid(True)
-
-    # Learning rate
-    ax[2].plot(train_logs['lr'], label="lr", color="tab:green")
-    ax[2].set_title("Learning Rate per Epoch"); ax[2].set_xlabel("Epoch")
-    ax[2].set_ylabel("LR"); ax[2].grid(True)
-
-    fig.tight_layout()
-    return fig
-
-
-def load_run(run_path:str):
-    """
-    ==================================================
-    == Load Given Run Artifacts (GiTHUB.com/HooM4N) ==
-    ==================================================
-    - Returns: model, tokenizer, config, device, training_logs
-    """
-    device = resolve_device()
-    try:
-        
-        config = read_config(os.path.join(run_path, "config.yaml"))
-
-        tokenizer = Tokenizer().load_from_file(os.path.join(run_path, "tokenizer.json"))
-        model = WordFlowModel(
-            tokenizer.get_vocab_size(), **config["model_params"]
-        ).to(device)
-        model.load_state_dict(
-            torch.load(os.path.join(run_path, "WordFlow_ckpnt.pt"), 
-                       map_location=device, 
-                       weights_only=True)
-        )
-        with open(os.path.join(run_path, "training_logs.json")) as f:
-            training_logs = json.load(f)
-        return model, tokenizer, config, device, training_logs
-    except Exception as e:
-        print(f"*** failed to load component: {e} ***")
-        return None
-
-def list_runs(models_dir: str = "models/") -> list[str]:
-    return [os.path.join(models_dir, d) for d in os.listdir(models_dir) if d.startswith("WordFlow_run")]
-
-
-================================================
-FILE: src/utils/conf.py
-================================================
-import os, yaml
-
-def ensure_dirs(paths: dict):
-    for k,p in paths.items():
-        if p is not None and k.endswith("_dir"):
-            os.makedirs(p, exist_ok=True)
-
-def model_summary(model: torch.nn.Module) -> str:
-    """
-    =================================================================
-    == Pretty Print of Model Parameter Summary (GitHUB.com/HooM4N) ==
-    =================================================================
-    """
-    rows = []
-    for name, m in model.named_modules():
-        if name == "":
-            continue
-        trainable = sum(p.numel() for p in m.parameters(recurse=False) if p.requires_grad)
-        frozen = sum(p.numel() for p in m.parameters(recurse=False) if not p.requires_grad)
-        rows.append((
-            name,
-            f"{m.__class__.__name__}({m.extra_repr()})",
-            trainable + frozen,
-            trainable,
-        ))
-
-    total_params = sum(p.numel() for p in model.parameters())
-    total_trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
-
-    mod_w = max([6] + [len(r[0]) for r in rows])
-    cls_w = max([5] + [len(r[1]) for r in rows])
-    num_w = max(10, len(f"{total_params:,}"))
-    width = mod_w + cls_w + num_w * 2 + 10
-
-    lines = [
-        "=" * width,
-        f"Model Parameter Summary for {model.__class__.__name__}".center(width),
-        "=" * width,
-        f"{'Module':{mod_w}} | {'Class':{cls_w}} | {'Total':>{num_w}} | {'Trainable':>{num_w}}",
-        "-" * width,
-    ]
-
-    lines += [
-        f"{n:{mod_w}} | {c:{cls_w}} | {t:{num_w},} | {tr:{num_w},}"
-        for n, c, t, tr in rows
-    ]
-
-    lines += [
-        "-" * width,
-        f"{'TOTAL':{mod_w}} | {'':{cls_w}} | {total_params:{num_w},} | {total_trainable:{num_w},}",
-        "=" * width,
-    ]
-
-    return "\n".join(lines)
-
-
-================================================
-FILE: src/utils/torch_device.py
-================================================
-import torch
-import logging
-
-logger = logging.getLogger(__name__)
-
-def resolve_device() -> torch.device:
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    logger.info(f"*** using device: {device.type} ***")
-    return device
-
-
-================================================
-FILE: src/utils/yaml.py
-================================================
-import os
-import yaml
-import logging
-
-logger = logging.getLogger(__name__)
-
-def read_yaml(yaml_file_path: str) -> dict:
-    """
-    ========================================
-    == Read YAML File (GitHUB.com/HooM4N) ==
-    ========================================
-    """
-    try:
-        with open(yaml_file_path, "r", encoding="utf-8") as f:
-            yaml_file = yaml.safe_load(f)
-        return yaml_file
-    except Exception as e:
-        logger.error(f"** Error reading config file: {e} **")
-    return None
-
-def write_yaml(config: dict, yaml_path: str):
-    """
-    ===============================================
-    == Writes to YAML Config (GitHUB.com/HooM4N) ==
-    ===============================================
-    """
-    os.makedirs(os.path.dirname(yaml_path), exist_ok=True)
-    try:
-        with open(yaml_path, "w") as f:
-            yaml.safe_dump(config, f, default_flow_style=False)
-    except Exception as e:
-        logger.error(f"** Error writing config file: {e} **")
 

@@ -1,91 +1,100 @@
 import torch
 from .tokenizer import Tokenizer
 from .model import WordFlowModel
-from .preprocess import text_preprocess
+from .data import text_preprocessor
 
 @torch.no_grad()
 def generate(
     model: WordFlowModel, 
     tokenizer: Tokenizer, 
-    config: dict[str, int | float | str], 
     device: torch.device,
-    init_word: str = None, 
+    init_word: str = "<bos>", 
     max_new_tokens: int = 32, 
     temperature: float = 0.9,
     post_process: bool = True,
     seed: int = None
 ) -> str:
     """
-    ==================================================================
-    == Autoregressive Word Generation (GiTHUB.com/HoomM4N/WordFlow) ==
-    ==================================================================
-    - Starts from given init word 
-    - Samples tokens using temperature scaling
-    - Skips <unk>, replaces <eos> with newline  
+    Autoregressive Word Generation.
+    
+    Starts from a given initial word, samples tokens using temperature scaling,
+    and formats the output text.
+    
+    WordFlow: Word-Level Language Modeling with RNNs GiTHub.com/HooM4N/WordFlow
     """
     if seed is not None:
         torch.manual_seed(seed)
-    model.eval()
-    hidden = model.init_hidden(1)
-    tkns = ["<unk>", "<eos>", init_word]
-    unk_id, eos_id, init_idx = [tokenizer.token_to_id(t) for t in tkns]
-    if init_idx != unk_id:
-        input_ = torch.tensor(init_idx, dtype=torch.long).reshape(1,-1).to(device)
-    else:
-        print(f"*** {init_word} is not in vocab, picking a random initial word... ***")
-        input_ = torch.randint(low=5, high=len(tokenizer.get_vocab()), size=(1,1), dtype=torch.long).to(device)
-        init_word = tokenizer.id_to_token(input_.item())
         
+    model.eval()
+    hidden = model.init_hidden(batch_size=1)
+    
+    unk_id = tokenizer.token_to_id("<unk>")
+    eos_id = tokenizer.token_to_id("<eos>")
+    init_idx = tokenizer.token_to_id(init_word)
+    
+    if init_idx == unk_id:
+        print(f"*** '{init_word}' is not in vocab, picking a random initial word... ***")
+        init_idx = torch.randint(low=5, high=tokenizer.get_vocab_size(), size=(1,)).item()
+        init_word = tokenizer.id_to_token(init_idx)
+        
+    input_ = torch.tensor([[init_idx]], dtype=torch.long, device=device)
     generated_words = [init_word]
+    
     for _ in range(max_new_tokens):
-        output, hidden = model(input_, hidden)
-        probs = output.squeeze().div(temperature).exp().cpu()
+        logits, hidden = model(input_, hidden)
+        
+        # model outputs (N, vocab_size, L) -> we want the last step (L)
+        last_step_logits = logits[0, :, -1] 
+        
+        probs = (last_step_logits / temperature).softmax(dim=0).cpu()
 
         while True:
-            token_idx = torch.multinomial(probs, 1)[0]
+            token_idx = torch.multinomial(probs, 1).item()
             if token_idx != unk_id: 
                 break
         
         if token_idx == eos_id:
             break
+            
         input_.fill_(token_idx)
         generated_words.append(tokenizer.id_to_token(token_idx))
         
     text = " ".join(generated_words)
-    return post_process_fn(text) if post_process else text
-
-def post_process_fn(text:str) -> str:
-    return text.replace("<newline>", "\n").replace("<eos>", "")
+    
+    if post_process:
+        text = text.replace(" \n ", "\n").replace("<eos>", "")
+        
+    return text
     
 @torch.no_grad()
 def predict_next_word(
     model: WordFlowModel, 
     tokenizer: Tokenizer, 
-    config: dict[str, int | float | str], 
     device: torch.device, 
     context: str = "it is", 
     top_k: int = 5,
-    preprocess_kwargs: dict = None,
 ) -> dict[str, float]:
     """
-    ====================================================================
-    == Next Word Probability Prediction (GiTHUB.com/HoomM4N/WordFlow) ==
-    ====================================================================
-    - Returns top k candidate words with their probabilities given a context
+    Next Word Probability Prediction.
+    
+    Returns top k candidate words with their probabilities given a context phrase.
+    
+    WordFlow: Word-Level Language Modeling with RNNs GiTHub.com/HooM4N/WordFlow
     """
     model.eval()
-    hidden = model.init_hidden(1)
-    tkns = ["<unk>", "<eos>"]
-    unk_id, eos_id = [tokenizer.token_to_id(t) for t in tkns]
+    hidden = model.init_hidden(batch_size=1)
 
-    if preprocess_kwargs is not None:
-        context = text_preprocess(context, **preprocess_kwargs)
-    else:
-        context = text_preprocess(context)
+    context = text_preprocessor(context)
     context_ids = tokenizer.encode(context)
-    input_ = torch.tensor(context_ids, dtype=torch.long).reshape(1,-1).to(device)
-    output, _ = model(input_, hidden) 
-    top_probs, top_ids = torch.topk(torch.softmax(output[0,:,-1].cpu(), dim=0), top_k)
+    
+    input_ = torch.tensor([context_ids], dtype=torch.long, device=device)
+    logits, _ = model(input_, hidden) 
+    
+    # Extract the logits for the final time step
+    last_step_logits = logits[0, :, -1]
+    
+    top_probs, top_ids = torch.topk(last_step_logits.softmax(dim=0).cpu(), top_k)
+    
     return {
         tokenizer.id_to_token(i.item()): round(p.item(), 2) 
         for i, p in zip(top_ids, top_probs)

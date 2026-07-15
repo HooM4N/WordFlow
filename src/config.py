@@ -1,15 +1,12 @@
 import yaml
 import json
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 class DataConfig(BaseModel):
     train_data_path: str
     val_data_path: str | None = None
-    do_val_split: bool = True
-    val_split_ratio: float = 0.1
-    val_split_shuffle: bool = True
     max_vocab_size: int = 25000
-    tokenizer_lowercase: bool = False
+    tokenizer_lowercase: bool = True
 
 class ModelConfig(BaseModel):
     embedding_dim: int = 300
@@ -34,7 +31,7 @@ class TrainConfig(BaseModel):
 class WordFlowConfig(BaseModel):
     seed: int = 1212
     use_accelerator: bool = True
-    runs_dir: str = "runs/"
+    runs_dir: "runs/"
     
     data: DataConfig
     model: ModelConfig
