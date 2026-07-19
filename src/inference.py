@@ -1,25 +1,41 @@
 import torch
-from .tokenizer import Tokenizer
+import torch.nn.functional as F
+
 from .model import WordFlowModel
+from .tokenizer import Tokenizer
 from .data import text_preprocessor
 
 @torch.no_grad()
-def generate(
+def generate_text(
     model: WordFlowModel, 
     tokenizer: Tokenizer, 
     device: torch.device,
-    init_word: str = "<bos>", 
-    max_new_tokens: int = 32, 
-    temperature: float = 0.9,
-    post_process: bool = True,
-    seed: int = None
+    prompt: str | None = None, 
+    max_tokens: int = 100, 
+    temperature: float = 0.8,
+    top_k: int = 10,
+    seed: int | None = None
 ) -> str:
     """
-    Autoregressive Word Generation.
+    Autoregressively generates text from the WordFlow model.
     
-    Starts from a given initial word, samples tokens using temperature scaling,
-    and formats the output text.
+    If a prompt is provided, it passes the sequence through the RNN to build 
+    contextual memory (the hidden state) before generating new tokens. If no 
+    prompt is provided, it begins with a random vocabulary token.
     
+    Args:
+        model (WordFlowModel): The trained GRU language model.
+        tokenizer (Tokenizer): The project's tokenizer instance.
+        device (torch.device): Compute device (cpu or cuda).
+        prompt (str, optional): Seed text to start generation. Defaults to None.
+        max_tokens (int): Maximum number of words to generate.
+        temperature (float): Scales logits before softmax. Higher = more random.
+        top_k (int): Limits sampling to the top K most likely tokens.
+        seed (int, optional): Random seed for reproducibility.
+        
+    Returns:
+        str: The fully generated text string.
+        
     WordFlow: Word-Level Language Modeling with RNNs GiTHub.com/HooM4N/WordFlow
     """
     if seed is not None:
@@ -28,74 +44,124 @@ def generate(
     model.eval()
     hidden = model.init_hidden(batch_size=1)
     
-    unk_id = tokenizer.token_to_id("<unk>")
-    eos_id = tokenizer.token_to_id("<eos>")
-    init_idx = tokenizer.token_to_id(init_word)
-    
-    if init_idx == unk_id:
-        print(f"*** '{init_word}' is not in vocab, picking a random initial word... ***")
-        init_idx = torch.randint(low=5, high=tokenizer.get_vocab_size(), size=(1,)).item()
-        init_word = tokenizer.id_to_token(init_idx)
+    # 1. Prepare the initial sequence
+    if prompt:
+        # Preprocess and encode the user's prompt
+        clean_prompt = text_preprocessor(prompt)
+        input_ids = tokenizer.encode(clean_prompt)
         
-    input_ = torch.tensor([[init_idx]], dtype=torch.long, device=device)
-    generated_words = [init_word]
-    
-    for _ in range(max_new_tokens):
-        logits, hidden = model(input_, hidden)
+        # Feed the entire prompt into the model to build the hidden state memory
+        x = torch.tensor([input_ids], dtype=torch.long, device=device)
+        logits, hidden = model(x, hidden)
         
-        # model outputs (N, vocab_size, L) -> we want the last step (L)
-        last_step_logits = logits[0, :, -1] 
+        # We only care about predicting the word that comes AFTER the prompt
+        next_logits = logits[0, :, -1]
+        generated_ids = input_ids.copy()
         
-        probs = (last_step_logits / temperature).softmax(dim=0).cpu()
+    else:
+        # No prompt provided: pick a random valid starting word
+        vocab_size = tokenizer.get_vocab_size()
+        start_id = torch.randint(low=5, high=vocab_size, size=(1,)).item()
+        
+        x = torch.tensor([[start_id]], dtype=torch.long, device=device)
+        logits, hidden = model(x, hidden)
+        
+        next_logits = logits[0, :, -1]
+        generated_ids = [start_id]
 
-        while True:
-            token_idx = torch.multinomial(probs, 1).item()
-            if token_idx != unk_id: 
-                break
+    # 2. Autoregressive Generation Loop
+    for _ in range(max_tokens):
+        # Apply temperature scaling
+        next_logits = next_logits / temperature
         
-        if token_idx == eos_id:
+        # Apply Top-K filtering to remove long-tail gibberish
+        if top_k is not None:
+            v, _ = torch.topk(next_logits, top_k)
+            next_logits[next_logits < v[-1]] = -float('Inf')
+            
+        # Convert to probabilities and sample
+        probs = F.softmax(next_logits, dim=0)
+        next_id = torch.multinomial(probs, num_samples=1).item()
+        
+        generated_ids.append(next_id)
+        
+        # Stop early if the model generates the End-Of-Story token
+        if next_id == tokenizer.token_to_id("<eos>"):
             break
             
-        input_.fill_(token_idx)
-        generated_words.append(tokenizer.id_to_token(token_idx))
+        # Prepare the newly generated token for the next loop
+        x = torch.tensor([[next_id]], dtype=torch.long, device=device)
+        logits, hidden = model(x, hidden)
+        next_logits = logits[0, :, -1]
         
-    text = " ".join(generated_words)
+    # 3. Decode and clean up formatting
+    text = tokenizer.decode(generated_ids)
     
-    if post_process:
-        text = text.replace(" \n ", "\n").replace("<eos>", "")
-        
+    # Restore actual newlines and remove padding/EOS markers
+    text = text.replace(" \n ", "\n").replace("<eos>", "").strip()
     return text
-    
+
+
 @torch.no_grad()
-def predict_next_word(
+def get_similar_words(
     model: WordFlowModel, 
     tokenizer: Tokenizer, 
-    device: torch.device, 
-    context: str = "it is", 
-    top_k: int = 5,
+    word: str, 
+    top_n: int = 5
 ) -> dict[str, float]:
     """
-    Next Word Probability Prediction.
+    Extracts the learned semantic relationships from the model's Embedding layer.
     
-    Returns top k candidate words with their probabilities given a context phrase.
+    Calculates the Cosine Similarity between the target word's embedding vector 
+    and every other word vector in the vocabulary to find the closest matches.
     
+    Args:
+        model (WordFlowModel): The trained GRU language model.
+        tokenizer (Tokenizer): The project's tokenizer instance.
+        word (str): The target word to search neighbors for.
+        top_n (int): The number of similar words to return.
+        
+    Returns:
+        dict: A dictionary mapping similar words to their cosine similarity score 
+              (e.g., {"king": 0.85, "royalty": 0.72}).
+              
     WordFlow: Word-Level Language Modeling with RNNs GiTHub.com/HooM4N/WordFlow
     """
-    model.eval()
-    hidden = model.init_hidden(batch_size=1)
-
-    context = text_preprocessor(context)
-    context_ids = tokenizer.encode(context)
+    word = word.lower().strip()
+    word_id = tokenizer.token_to_id(word)
     
-    input_ = torch.tensor([context_ids], dtype=torch.long, device=device)
-    logits, _ = model(input_, hidden) 
+    # Handle Out-Of-Vocabulary words
+    if word_id == getattr(tokenizer, "unk_id", -1) and word != getattr(tokenizer, "unk_token", "<unk>"):
+        return {"error": f"Word '{word}' is not in the vocabulary."}
+        
+    # Extract the raw embedding matrix to CPU memory
+    embeddings = model.embedding.weight.detach().cpu()
     
-    # Extract the logits for the final time step
-    last_step_logits = logits[0, :, -1]
+    # Grab the 1D vector for our target word and add a batch dimension: (1, embedding_dim)
+    target_vec = embeddings[word_id].unsqueeze(0)
     
-    top_probs, top_ids = torch.topk(last_step_logits.softmax(dim=0).cpu(), top_k)
+    # Calculate Cosine Similarity against the entire vocabulary matrix
+    cos_sim = F.cosine_similarity(target_vec, embeddings, dim=1)
     
-    return {
-        tokenizer.id_to_token(i.item()): round(p.item(), 2) 
-        for i, p in zip(top_ids, top_probs)
-    }
+    # We get top_n + 1 because the most similar word to 'apple' is always 'apple'
+    top_scores, top_indices = torch.topk(cos_sim, top_n + 1)
+    
+    results = {}
+    for score, idx in zip(top_scores, top_indices):
+        idx = idx.item()
+        
+        # Skip the original target word
+        if idx == word_id:
+            continue
+            
+        sim_word = tokenizer.id_to_token(idx)
+        
+        # Filter out weird special tokens from the results
+        if sim_word not in tokenizer.special_tokens:
+            results[sim_word] = round(score.item(), 3)
+            
+        # Stop once we have exactly top_n real words
+        if len(results) == top_n:
+            break
+            
+    return results
