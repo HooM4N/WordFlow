@@ -23,19 +23,6 @@ def generate_text(
     contextual memory (the hidden state) before generating new tokens. If no 
     prompt is provided, it begins with a random vocabulary token.
     
-    Args:
-        model (WordFlowModel): The trained GRU language model.
-        tokenizer (Tokenizer): The project's tokenizer instance.
-        device (torch.device): Compute device (cpu or cuda).
-        prompt (str, optional): Seed text to start generation. Defaults to None.
-        max_tokens (int): Maximum number of words to generate.
-        temperature (float): Scales logits before softmax. Higher = more random.
-        top_k (int): Limits sampling to the top K most likely tokens.
-        seed (int, optional): Random seed for reproducibility.
-        
-    Returns:
-        str: The fully generated text string.
-        
     WordFlow: Word-Level Language Modeling with RNNs GiTHub.com/HooM4N/WordFlow
     """
     if seed is not None:
@@ -114,16 +101,6 @@ def get_similar_words(
     
     Calculates the Cosine Similarity between the target word's embedding vector 
     and every other word vector in the vocabulary to find the closest matches.
-    
-    Args:
-        model (WordFlowModel): The trained GRU language model.
-        tokenizer (Tokenizer): The project's tokenizer instance.
-        word (str): The target word to search neighbors for.
-        top_n (int): The number of similar words to return.
-        
-    Returns:
-        dict: A dictionary mapping similar words to their cosine similarity score 
-              (e.g., {"king": 0.85, "royalty": 0.72}).
               
     WordFlow: Word-Level Language Modeling with RNNs GiTHub.com/HooM4N/WordFlow
     """
@@ -143,7 +120,7 @@ def get_similar_words(
     # Calculate Cosine Similarity against the entire vocabulary matrix
     cos_sim = F.cosine_similarity(target_vec, embeddings, dim=1)
     
-    # We get top_n + 1 because the most similar word to 'apple' is always 'apple'
+    # We get top_n + 1 because the most similar word to itself is always itself
     top_scores, top_indices = torch.topk(cos_sim, top_n + 1)
     
     results = {}

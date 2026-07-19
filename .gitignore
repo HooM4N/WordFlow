@@ -9,6 +9,8 @@ dist/
 *.log
 *.tmp
 digest.txt
+apply_code.py
+code.txt
 
 data/
 runs
