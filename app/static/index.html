@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WordFlow Experiment Manager</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js for Plots -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="bg-gray-900 text-gray-100 font-sans h-screen flex overflow-hidden">
+
+    <!-- Sidebar -->
+    <aside class="w-72 bg-gray-800 border-r border-gray-700 flex flex-col h-full z-10 shadow-xl">
+        <div class="p-6 border-b border-gray-700 text-center">
+            <h1 class="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400">
+                <i class="fa-solid fa-water"></i> WordFlow
+            </h1>
+            <p class="text-xs text-gray-400 mt-2">Word-Level Language Modeling</p>
+        </div>
+
+        <div class="p-6 flex-grow overflow-y-auto">
+            <h2 class="text-sm font-semibold text-gray-400 mb-2 uppercase tracking-wider">Experiment Runs</h2>
+            <select id="runSelect" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-2 text-sm focus:ring-blue-500 focus:border-blue-500 mb-4">
+                <option value="">-- Select a Run --</option>
+            </select>
+            <button id="loadRunBtn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2 px-4 rounded-lg transition-colors" disabled>
+                <i class="fa-solid fa-microchip"></i> Load Model into Memory
+            </button>
+            <div id="loadStatus" class="mt-3 text-sm text-center hidden"></div>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 p-8 overflow-y-auto h-full relative">
+        
+        <!-- Configuration Dashboard (Appears on selection) -->
+        <div id="configPanel" class="grid grid-cols-3 gap-6 mb-8 opacity-0 transition-opacity duration-300 pointer-events-none">
+            
+            <!-- Model Architecture -->
+            <div class="bg-gray-800 rounded-xl border border-gray-700 shadow-lg overflow-hidden flex flex-col">
+                <div class="bg-gray-700/50 px-4 py-3 border-b border-gray-700 font-bold text-blue-400 text-sm tracking-wide flex items-center gap-2">
+                    <i class="fa-solid fa-network-wired"></i> Model Architecture
+                </div>
+                <div class="p-4 text-sm flex-1 flex flex-col justify-between space-y-2">
+                    <div class="flex justify-between items-center border-b border-gray-700/50 pb-1">
+                        <span class="text-gray-400">Total Parameters</span>
+                        <span id="cfgParams" class="font-mono text-xs bg-gray-900 px-2 py-1 rounded text-gray-400">Load to View</span>
+                    </div>
+                    <div class="flex justify-between items-center border-b border-gray-700/50 pb-1">
+                        <span class="text-gray-400">Embedding / Hidden</span>
+                        <span id="cfgDims" class="font-mono text-gray-100">-</span>
+                    </div>
+                    <div class="flex justify-between items-center border-b border-gray-700/50 pb-1">
+                        <span class="text-gray-400">GRU Layers</span>
+                        <span id="cfgLayers" class="font-mono text-gray-100">-</span>
+                    </div>
+                    <div class="flex justify-between items-center border-b border-gray-700/50 pb-1">
+                        <span class="text-gray-400">Dropouts (Emb/Rnn/Out)</span>
+                        <span id="cfgDrops" class="font-mono text-gray-100">-</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-400">Tied Weights</span>
+                        <span id="cfgTie" class="font-mono text-gray-100">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Training Hyperparameters -->
+            <div class="bg-gray-800 rounded-xl border border-gray-700 shadow-lg overflow-hidden flex flex-col">
+                <div class="bg-gray-700/50 px-4 py-3 border-b border-gray-700 font-bold text-rose-400 text-sm tracking-wide flex items-center gap-2">
+                    <i class="fa-solid fa-stopwatch"></i> Training Params
+                </div>
+                <div class="p-4 text-sm flex-1 flex flex-col justify-between space-y-2">
+                    <div class="flex justify-between items-center border-b border-gray-700/50 pb-1">
+                        <span class="text-gray-400">Seq Length / Batch</span>
+                        <span id="cfgSeqBatch" class="font-mono text-gray-100">-</span>
+                    </div>
+                    <div class="flex justify-between items-center border-b border-gray-700/50 pb-1">
+                        <span class="text-gray-400">Epochs</span>
+                        <span id="cfgEpochs" class="font-mono text-gray-100">-</span>
+                    </div>
+                    <div class="flex justify-between items-center border-b border-gray-700/50 pb-1">
+                        <span class="text-gray-400">Learning Rate (Max)</span>
+                        <span id="cfgLr" class="font-mono text-gray-100">-</span>
+                    </div>
+                    <div class="flex justify-between items-center border-b border-gray-700/50 pb-1">
+                        <span class="text-gray-400">Early Stop Patience</span>
+                        <span id="cfgEs" class="font-mono text-gray-100">-</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-400">Mixed Precision</span>
+                        <span id="cfgAmp" class="font-mono text-gray-100">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Data & Environment -->
+            <div class="bg-gray-800 rounded-xl border border-gray-700 shadow-lg overflow-hidden flex flex-col">
+                <div class="bg-gray-700/50 px-4 py-3 border-b border-gray-700 font-bold text-emerald-400 text-sm tracking-wide flex items-center gap-2">
+                    <i class="fa-solid fa-database"></i> Data & Environment
+                </div>
+                <div class="p-4 text-sm flex-1 flex flex-col justify-between space-y-2">
+                    <div class="flex justify-between items-center border-b border-gray-700/50 pb-1">
+                        <span class="text-gray-400">Vocab Max Limit</span>
+                        <span id="cfgVocab" class="font-mono text-gray-100">-</span>
+                    </div>
+                    <div class="flex justify-between items-center border-b border-gray-700/50 pb-1">
+                        <span class="text-gray-400">Tokenizer Lowercase</span>
+                        <span id="cfgLower" class="font-mono text-gray-100">-</span>
+                    </div>
+                    <div class="flex justify-between items-center border-b border-gray-700/50 pb-1">
+                        <span class="text-gray-400">Random Seed</span>
+                        <span id="cfgSeed" class="font-mono text-gray-100">-</span>
+                    </div>
+                    <div class="flex justify-between items-center border-b border-gray-700/50 pb-1">
+                        <span class="text-gray-400">Val Split Ratio</span>
+                        <span id="cfgSplit" class="font-mono text-gray-100">-</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-400">Use Accelerator</span>
+                        <span id="cfgAccel" class="font-mono text-gray-100">-</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Charts Row -->
+        <div id="chartsPanel" class="grid grid-cols-2 gap-8 mb-8 opacity-0 transition-opacity duration-300">
+            <div class="bg-gray-800 p-4 rounded-xl border border-gray-700 shadow-lg flex flex-col">
+                <h3 class="text-sm font-semibold text-gray-400 mb-4 uppercase tracking-wider flex-none">Training vs Validation Loss</h3>
+                <div class="relative w-full h-64 flex-1">
+                    <canvas id="lossChart"></canvas>
+                </div>
+            </div>
+            <div class="bg-gray-800 p-4 rounded-xl border border-gray-700 shadow-lg flex flex-col">
+                <h3 class="text-sm font-semibold text-gray-400 mb-4 uppercase tracking-wider flex-none">Validation Perplexity</h3>
+                <div class="relative w-full h-64 flex-1">
+                    <canvas id="pplChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Inference Row -->
+        <div id="inferencePanel" class="grid grid-cols-2 gap-8 opacity-50 pointer-events-none transition-opacity duration-300">
+            
+            <!-- Generation Box -->
+            <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg flex flex-col">
+                <h3 class="text-lg font-bold text-gray-100 mb-4 border-b border-gray-700 pb-2"><i class="fa-solid fa-wand-magic-sparkles text-emerald-400"></i> Story Generation</h3>
+                
+                <label class="text-xs text-gray-400 uppercase mb-1">Prompt / Seed Text</label>
+                <textarea id="genPrompt" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-3 text-sm focus:ring-emerald-500 focus:border-emerald-500 mb-4 h-20" placeholder="Once upon a time..."></textarea>
+                
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="text-xs text-gray-400 uppercase mb-1">Max Tokens (<span id="maxTokensVal">100</span>)</label>
+                        <input type="range" id="maxTokens" min="10" max="300" value="100" class="w-full accent-emerald-500">
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-400 uppercase mb-1">Temperature (<span id="tempVal">0.8</span>)</label>
+                        <input type="range" id="temp" min="0.1" max="1.5" step="0.1" value="0.8" class="w-full accent-emerald-500">
+                    </div>
+                </div>
+
+                <button id="generateBtn" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2 px-4 rounded-lg transition-colors mb-4">
+                    Generate Text
+                </button>
+
+                <div class="flex-1 bg-gray-900 border border-gray-700 rounded-lg p-4 font-mono text-sm text-gray-300 overflow-y-auto min-h-[150px] max-h-[300px]" id="genOutput">
+                    Output will appear here...
+                </div>
+            </div>
+
+            <!-- Similarity Box -->
+            <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg flex flex-col">
+                <h3 class="text-lg font-bold text-gray-100 mb-4 border-b border-gray-700 pb-2"><i class="fa-solid fa-diagram-project text-blue-400"></i> Embedding Explorer</h3>
+                
+                <p class="text-sm text-gray-400 mb-4">Calculate Cosine Similarity inside the WordFlow embedding matrix to find the closest semantic neighbors.</p>
+
+                <label class="text-xs text-gray-400 uppercase mb-1">Target Word</label>
+                <div class="flex gap-2 mb-6">
+                    <input type="text" id="simWord" class="flex-1 bg-gray-900 border border-gray-600 rounded-lg p-3 text-sm focus:ring-blue-500 focus:border-blue-500" placeholder="e.g. happy">
+                    <button id="similarBtn" class="bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2 px-6 rounded-lg transition-colors">
+                        Search
+                    </button>
+                </div>
+
+                <h4 class="text-xs font-semibold text-gray-400 mb-2 uppercase">Results</h4>
+                <div class="flex-1 bg-gray-900 border border-gray-700 rounded-lg p-4 overflow-y-auto max-h-[300px]" id="simOutput">
+                    <p class="text-sm text-gray-500 italic">Enter a word to see its embedding neighbors...</p>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>
