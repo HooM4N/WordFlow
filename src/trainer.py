@@ -25,8 +25,7 @@ def trainer(
     config: WordFlowConfig,
     device: torch.device,
     run_dir: str,
-    tokenizer: Tokenizer,
-    detach_hidden: Callable,
+    tokenizer: Tokenizer
 ) -> nn.Module:
     """
     Main training loop for Truncated BPTT Word-Level Modeling.

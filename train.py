@@ -11,7 +11,7 @@ from src.config import WordFlowConfig
 from src.data import get_data
 from src.dataset import TruncatedBPTTDataset, bptt_collate
 from src.tokenizer import Tokenizer
-from src.model import WordFlowModel, detach_hidden
+from src.model import WordFlowModel
 from src.trainer import trainer
 
 def setup_run_directory_and_logger(config: WordFlowConfig) -> str:
@@ -114,8 +114,7 @@ def main():
         config=config,
         device=device,
         run_dir=run_dir,
-        tokenizer=tokenizer,
-        detach_hidden=detach_hidden
+        tokenizer=tokenizer
     )
 
 if __name__ == "__main__":
