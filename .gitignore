@@ -13,7 +13,6 @@ apply_code.py
 code.txt
 
 data/
-runs
 runs/
 
 bptt.md

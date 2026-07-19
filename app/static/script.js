@@ -25,7 +25,6 @@ const cfgSplit = document.getElementById('cfgSplit');
 const cfgAccel = document.getElementById('cfgAccel');
 
 // Inference Elements
-const genPrompt = document.getElementById('genPrompt');
 const maxTokens = document.getElementById('maxTokens');
 const maxTokensVal = document.getElementById('maxTokensVal');
 const temp = document.getElementById('temp');
@@ -263,7 +262,6 @@ generateBtn.addEventListener('click', async () => {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                prompt: genPrompt.value || null,
                 max_tokens: parseInt(maxTokens.value),
                 temperature: parseFloat(temp.value)
             })

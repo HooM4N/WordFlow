@@ -6,22 +6,20 @@ from .tokenizer import Tokenizer
 from .data import text_preprocessor
 
 @torch.no_grad()
-def generate_text(
+def generate_story(
     model: WordFlowModel, 
     tokenizer: Tokenizer, 
     device: torch.device,
-    prompt: str | None = None, 
     max_tokens: int = 100, 
     temperature: float = 0.8,
     top_k: int = 10,
     seed: int | None = None
 ) -> str:
     """
-    Autoregressively generates text from the WordFlow model.
+    Autoregressively generates a story from the WordFlow model.
     
-    If a prompt is provided, it passes the sequence through the RNN to build 
-    contextual memory (the hidden state) before generating new tokens. If no 
-    prompt is provided, it begins with a random vocabulary token.
+    It begins generation by feeding the <eos> token to the model, which 
+    acts as a natural delimiter signaling the model to start a new story.
     
     WordFlow: Word-Level Language Modeling with RNNs GiTHub.com/HooM4N/WordFlow
     """
@@ -31,32 +29,17 @@ def generate_text(
     model.eval()
     hidden = model.init_hidden(batch_size=1)
     
-    # 1. Prepare the initial sequence
-    if prompt:
-        # Preprocess and encode the user's prompt
-        clean_prompt = text_preprocessor(prompt)
-        input_ids = tokenizer.encode(clean_prompt)
-        
-        # Feed the entire prompt into the model to build the hidden state memory
-        x = torch.tensor([input_ids], dtype=torch.long, device=device)
-        logits, hidden = model(x, hidden)
-        
-        # We only care about predicting the word that comes AFTER the prompt
-        next_logits = logits[0, :, -1]
-        generated_ids = input_ids.copy()
-        
-    else:
-        # No prompt provided: pick a random valid starting word
-        vocab_size = tokenizer.get_vocab_size()
-        start_id = torch.randint(low=5, high=vocab_size, size=(1,)).item()
-        
-        x = torch.tensor([[start_id]], dtype=torch.long, device=device)
-        logits, hidden = model(x, hidden)
-        
-        next_logits = logits[0, :, -1]
-        generated_ids = [start_id]
+    # Start with the End-Of-Story token to trigger a new story
+    start_id = tokenizer.token_to_id("<eos>")
+    x = torch.tensor([[start_id]], dtype=torch.long, device=device)
+    
+    # Feed initial token to build context
+    logits, hidden = model(x, hidden)
+    next_logits = logits[0, :, -1]
+    
+    generated_ids = []
 
-    # 2. Autoregressive Generation Loop
+    # Autoregressive Generation Loop
     for _ in range(max_tokens):
         # Apply temperature scaling
         next_logits = next_logits / temperature
@@ -70,18 +53,18 @@ def generate_text(
         probs = F.softmax(next_logits, dim=0)
         next_id = torch.multinomial(probs, num_samples=1).item()
         
-        generated_ids.append(next_id)
-        
-        # Stop early if the model generates the End-Of-Story token
+        # Stop early if the model generates another End-Of-Story token
         if next_id == tokenizer.token_to_id("<eos>"):
             break
             
+        generated_ids.append(next_id)
+        
         # Prepare the newly generated token for the next loop
         x = torch.tensor([[next_id]], dtype=torch.long, device=device)
         logits, hidden = model(x, hidden)
         next_logits = logits[0, :, -1]
         
-    # 3. Decode and clean up formatting
+    # Decode and clean up formatting
     text = tokenizer.decode(generated_ids)
     
     # Restore actual newlines and remove padding/EOS markers

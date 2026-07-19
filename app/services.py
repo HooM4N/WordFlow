@@ -6,7 +6,7 @@ import logging
 from src.config import WordFlowConfig
 from src.tokenizer import Tokenizer
 from src.model import WordFlowModel
-from src.inference import generate_text, get_similar_words
+from src.inference import generate_story, get_similar_words
 
 logger = logging.getLogger(__name__)
 
@@ -107,13 +107,13 @@ class InferenceService:
             "parameters": trainable
         }
 
-    def generate(self, prompt: str, max_tokens: int, temperature: float, top_k: int, seed: int) -> str:
+    def generate(self, max_tokens: int, temperature: float, top_k: int, seed: int) -> str:
         if not self.model:
             raise RuntimeError("No model is currently loaded. Please load a run first.")
             
-        return generate_text(
+        return generate_story(
             self.model, self.tokenizer, self.device,
-            prompt=prompt, max_tokens=max_tokens, 
+            max_tokens=max_tokens, 
             temperature=temperature, top_k=top_k, seed=seed
         )
 
