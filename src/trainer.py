@@ -90,7 +90,7 @@ def trainer(
 
             if val_loader:
                 val_loss = evaluate(
-                    model, val_loader, loss_fn, device, detach_hidden, config.train.enable_mixed_precision
+                    model, val_loader, loss_fn, device, config.train.enable_mixed_precision
                 )
                 train_logs["val_loss"].append(val_loss)
                 train_logs["val_perplexity"].append(math.exp(val_loss))
