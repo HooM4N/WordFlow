@@ -1,10 +1,10 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
 import os
 
 from app.services import InferenceService
+from app.schemas import LoadRunRequest, GenerateRequest, SimilarRequest
 
 app = FastAPI(title="WordFlow Dashboard")
 
@@ -14,21 +14,6 @@ inference_service = InferenceService(runs_dir="runs")
 # Ensure static directory exists
 os.makedirs("app/static", exist_ok=True)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
-
-# --- Pydantic Models for Requests ---
-class LoadRunRequest(BaseModel):
-    run_id: str
-
-class GenerateRequest(BaseModel):
-    prompt: str | None = None
-    max_tokens: int = 100
-    temperature: float = 0.8
-    top_k: int = 10
-    seed: int | None = None
-
-class SimilarRequest(BaseModel):
-    word: str
-    top_n: int = 5
 
 # --- Routes ---
 @app.get("/")
@@ -51,10 +36,9 @@ async def load_run(request: LoadRunRequest):
 
 @app.post("/api/generate")
 async def generate_text(request: GenerateRequest):
-    """Generates autoregressive text"""
+    """Generates autoregressive text (story)"""
     try:
         text = inference_service.generate(
-            prompt=request.prompt,
             max_tokens=request.max_tokens,
             temperature=request.temperature,
             top_k=request.top_k,
