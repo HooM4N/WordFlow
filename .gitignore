@@ -10,8 +10,9 @@ dist/
 *.tmp
 digest.txt
 
-data
+data/
 runs
+runs/
 
 bptt.md
 c.md
