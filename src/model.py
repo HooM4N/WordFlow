@@ -104,12 +104,3 @@ class WordFlowModel(nn.Module):
         logits = logits.permute(0, 2, 1) # (N, vocab_size, L)
         
         return logits, hidden
-
-
-def detach_hidden(hidden: torch.Tensor) -> torch.Tensor:
-    """
-    Detaches the hidden state from the current computation graph.
-       
-    WordFlow: Word-Level Language Modeling with RNNs GiTHub.com/HooM4N/WordFlow
-    """
-    return hidden.detach()

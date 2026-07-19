@@ -63,7 +63,7 @@ def trainer(
                 X, Y = X.to(device), Y.to(device)
                 optimizer.zero_grad(set_to_none=True)
                 
-                hidden = detach_hidden(hidden)
+                hidden = hidden.detach()
                 
                 with torch.autocast(
                     device_type=device.type, 
