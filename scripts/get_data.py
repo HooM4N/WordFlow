@@ -5,7 +5,7 @@ TINY_STORIES_URL = (
     "https://huggingface.co/datasets/roneneldan/TinyStories/resolve/main/"
     "data/train-00000-of-00004-2d5a1467fff1081b.parquet?download=true"
 )
-COUNT_OF_STORIES = 50
+COUNT_OF_STORIES = 12_000
 VAL_SPLIT_RATIO = 0.1
 RANDOM_SEED = 1212
 

@@ -9,8 +9,8 @@ data:
   tokenizer_lowercase: true
 
 model:
-  embedding_dim: 32
-  hidden_dim: 32
+  embedding_dim: 300
+  hidden_dim: 300
   num_layers: 1
   tie_weights: true
   emb_dropout_p: 0.2
@@ -18,9 +18,9 @@ model:
   out_dropout_p: 0.2
 
 train:
-  seq_len: 16
-  batch_size: 16
-  n_epochs: 3
+  seq_len: 128
+  batch_size: 128
+  n_epochs: 40
   lr: 0.001
   weight_decay: 0.01
   eta_min: 0.00005
