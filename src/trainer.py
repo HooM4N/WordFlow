@@ -25,8 +25,7 @@ def trainer(
     config: WordFlowConfig,
     device: torch.device,
     run_dir: str,
-    tokenizer: Tokenizer,
-    detach_hidden: Callable,
+    tokenizer: Tokenizer
 ) -> nn.Module:
     """
     Main training loop for Truncated BPTT Word-Level Modeling.
@@ -63,7 +62,7 @@ def trainer(
                 X, Y = X.to(device), Y.to(device)
                 optimizer.zero_grad(set_to_none=True)
                 
-                hidden = detach_hidden(hidden)
+                hidden = hidden.detach()
                 
                 with torch.autocast(
                     device_type=device.type, 
@@ -91,7 +90,7 @@ def trainer(
 
             if val_loader:
                 val_loss = evaluate(
-                    model, val_loader, loss_fn, device, detach_hidden, config.train.enable_mixed_precision
+                    model, val_loader, loss_fn, device, config.train.enable_mixed_precision
                 )
                 train_logs["val_loss"].append(val_loss)
                 train_logs["val_perplexity"].append(math.exp(val_loss))

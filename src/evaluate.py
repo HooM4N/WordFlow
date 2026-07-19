@@ -7,8 +7,7 @@ def evaluate(
     model: nn.Module, 
     eval_loader: DataLoader, 
     loss_fn: Callable, 
-    device: torch.device, 
-    detach_hidden: Callable,
+    device: torch.device,
     enable_mixed_precision: bool = True
 ) -> float:
     """
@@ -19,7 +18,6 @@ def evaluate(
         eval_loader (DataLoader): DataLoader providing (X, Y) sequence batches.
         loss_fn (Callable): The criterion (e.g., CrossEntropyLoss).
         device (torch.device): Device to perform computations on.
-        detach_hidden (Callable): Function to detach the GRU hidden state.
         enable_mixed_precision (bool): Whether to use torch.amp.
         
     Returns:
@@ -35,7 +33,7 @@ def evaluate(
     with torch.no_grad():
         for X, Y in eval_loader:
             X, Y = X.to(device), Y.to(device)
-            hidden = detach_hidden(hidden)
+            hidden = hidden.detach()
             
             with torch.autocast(device_type=device.type, dtype=torch.float16, enabled=enable_mixed_precision):
                 logits, hidden = model(X, hidden)
