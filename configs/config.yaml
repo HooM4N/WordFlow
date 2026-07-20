@@ -20,7 +20,7 @@ model:
 train:
   seq_len: 256
   batch_size: 128
-  n_epochs: 60
+  n_epochs: 80
   lr: 0.001
   weight_decay: 0.01
   eta_min: 0.00005

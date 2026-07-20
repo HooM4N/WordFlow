@@ -12,7 +12,6 @@ def generate_story(
     device: torch.device,
     max_tokens: int = 100, 
     temperature: float = 0.8,
-    top_k: int = 10,
     seed: int | None = None
 ) -> str:
     """
@@ -29,47 +28,37 @@ def generate_story(
     model.eval()
     hidden = model.init_hidden(batch_size=1)
     
-    # Start with the End-Of-Story token to trigger a new story
-    start_id = tokenizer.token_to_id("<eos>")
-    x = torch.tensor([[start_id]], dtype=torch.long, device=device)
+    # start with eos token to trigger a new story
+    eos_id = tokenizer.token_to_id("<eos>")
+    x = torch.tensor([[eos_id]], dtype=torch.long, device=device)
     
     # Feed initial token to build context
     logits, hidden = model(x, hidden)
     next_logits = logits[0, :, -1]
-    
+
     generated_ids = []
 
-    # Autoregressive Generation Loop
+    # autoregressive generation loop
     for _ in range(max_tokens):
-        # Apply temperature scaling
-        next_logits = next_logits / temperature
-        
-        # Apply Top-K filtering to remove long-tail gibberish
-        if top_k is not None:
-            v, _ = torch.topk(next_logits, top_k)
-            next_logits[next_logits < v[-1]] = -float('Inf')
-            
-        # Convert to probabilities and sample
-        probs = F.softmax(next_logits, dim=0)
+  
+        probs = F.softmax(next_logits.div(temperature), dim=0)
         next_id = torch.multinomial(probs, num_samples=1).item()
         
-        # Stop early if the model generates another End-Of-Story token
-        if next_id == tokenizer.token_to_id("<eos>"):
+        # stop generation if eos token found
+        if next_id == eos_id:
             break
             
         generated_ids.append(next_id)
         
-        # Prepare the newly generated token for the next loop
+        # generate next token
         x = torch.tensor([[next_id]], dtype=torch.long, device=device)
         logits, hidden = model(x, hidden)
         next_logits = logits[0, :, -1]
         
-    # Decode and clean up formatting
+    # decode ids
     text = tokenizer.decode(generated_ids)
     
-    # Restore actual newlines and remove padding/EOS markers
-    text = text.replace(" \n ", "\n").replace("<eos>", "").strip()
-    return text
+    return text.replace("<breakline>", "\n").replace("<eos>", "").strip()
 
 
 @torch.no_grad()

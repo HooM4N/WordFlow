@@ -8,7 +8,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 class Tokenizer:
-
+    """
+    Big Beautiful Tokenizer
+    """
     def __init__(
         self,
         max_tokens: int = 30_000,
