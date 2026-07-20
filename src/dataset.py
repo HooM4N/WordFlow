@@ -25,16 +25,16 @@ class TruncatedBPTTDataset(Dataset):
     ):
         full_seq = torch.tensor(corpus_ids, dtype=torch.long)
         
-        # Trim sequence length to be evenly divisible by batch_size
+        # trim sequence length to be evenly divisible by batch_size
         stream_len = full_seq.size(0) // batch_size
         full_seq = full_seq[:stream_len * batch_size]
         
-        # Reshape into (batch_size, stream_len)
+        # reshape into (batch_size, stream_len)
         self.full_seq = full_seq.view(batch_size, stream_len)
 
         self.seq_len = seq_len
         self.batch_size = batch_size
-        self.stream_len = self.full_seq.size(1) - 1 # <-- Changed to self.full_seq!
+        self.stream_len = self.full_seq.size(1) - 1
 
     def __len__(self) -> int:
         return self.stream_len // self.seq_len
@@ -43,10 +43,9 @@ class TruncatedBPTTDataset(Dataset):
         start = idx * self.seq_len
         end = start + self.seq_len
         
-        # Returns input (X) and shifted target (Y)
         return (
-            self.full_seq[:, start:end],           # X
-            self.full_seq[:, start + 1 : end + 1], # Y
+            self.full_seq[:, start:end],           # X (N, L)
+            self.full_seq[:, start + 1 : end + 1], # Y (N, L)
         )
 
 

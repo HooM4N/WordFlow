@@ -51,7 +51,7 @@ class WordFlowModel(nn.Module):
         )
         self.out_dropout = nn.Dropout(out_dropout_p)
 
-        # Classification Head
+        # classification Head
         self.fc = nn.Linear(hidden_dim, vocab_size, bias=not tie_weights) 
         if tie_weights: 
             self.fc.weight = self.embedding.weight 
@@ -89,18 +89,18 @@ class WordFlowModel(nn.Module):
                 - Output logits of shape (N, vocab_size, L)
                 - Updated hidden state of shape (num_layers, N, hidden_dim)
         """
-        # 1. Embedding
+        # embedding
         x = self.embedding(x)  # (N, L, E)
         x = self.emb_dropout(x)
 
-        # 2. RNN
+        # rnn
         x, hidden = self.rnn(x, hidden)  # x: (N, L, H), hidden: (num_layers, N, H)
         
-        # 3. Classification Head
+        # classification head
         x = self.out_dropout(x)
         logits = self.fc(x) # (N, L, vocab_size)
         
-        # PyTorch CrossEntropyLoss expects (N, C, L) for multidimensional inputs
+        # cross entropy loss expects (N, vocab_size, L)
         logits = logits.permute(0, 2, 1) # (N, vocab_size, L)
         
         return logits, hidden

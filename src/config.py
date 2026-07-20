@@ -31,7 +31,7 @@ class TrainConfig(BaseModel):
 class WordFlowConfig(BaseModel):
     seed: int = 1212
     use_accelerator: bool = True
-    runs_dir: str = "runs/"  # <-- Fixed this line!
+    runs_dir: str = "runs/"
     
     data: DataConfig
     model: ModelConfig
