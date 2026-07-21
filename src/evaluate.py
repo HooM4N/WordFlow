@@ -11,19 +11,9 @@ def evaluate(
     enable_mixed_precision: bool = True
 ) -> float:
     """
-    Evaluates the model on the validation dataset using Truncated BPTT.
-    
-    Args:
-        model (nn.Module): The WordFlow model.
-        eval_loader (DataLoader): DataLoader providing (X, Y) sequence batches.
-        loss_fn (Callable): The criterion (e.g., CrossEntropyLoss).
-        device (torch.device): Device to perform computations on.
-        enable_mixed_precision (bool): Whether to use torch.amp.
-        
-    Returns:
-        float: The average validation loss across the dataset.
-        
-    WordFlow: Word-Level Language Modeling with RNNs GiTHub.com/HooM4N/WordFlow
+    Evaluates the model on the validation set and returns the average loss.
+
+    *WordFlow: Word-Level Language Modeling with RNNs GiTHub.com/HooM4N/WordFlow*
     """
     model.eval()
     total_loss = 0.0

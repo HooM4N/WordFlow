@@ -16,20 +16,20 @@ os.makedirs(RAW_SAVE_PATH, exist_ok=True)
 os.makedirs(PROCESSED_SAVE_PATH, exist_ok=True)
 
 def main():
+    """
+    Downloads the TinyStories Parquet file and splits it into training and validation text files.
+
+    *WordFlow: Word-Level Language Modeling with RNNs GiTHub.com/HooM4N/WordFlow*
+    """
     raw_file_path = os.path.join(RAW_SAVE_PATH, "tiny_stories.parquet")
     
     if not os.path.exists(raw_file_path):
-        print("Downloading raw parquet file...")
         df = pd.read_parquet(TINY_STORIES_URL)
         df.to_parquet(raw_file_path, index=False)
-        print(f"Raw data saved to {raw_file_path}")
     else:
-        print("Loading raw parquet file from disk...")
         df = pd.read_parquet(raw_file_path)
 
     df = df.iloc[:COUNT_OF_STORIES]
-
-    print("Splitting dataset into train and validation sets...")
     
     df = df.sample(frac=1.0, random_state=RANDOM_SEED).reset_index(drop=True)
     
@@ -49,9 +49,6 @@ def main():
         
     with open(val_path, "w", encoding="utf-8") as f:
         f.write(val_corpus)
-
-    print(f"Success! Train data saved to: {train_path}")
-    print(f"Success! Val data saved to:   {val_path}")
 
 if __name__ == "__main__":
     main()

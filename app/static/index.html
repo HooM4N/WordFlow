@@ -5,11 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WordFlow Dashboard</title>
     <link rel="stylesheet" href="/static/style.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="chart.js"></script>
 </head>
 <body>
     <div class="dashboard-container">
-        <!-- Header -->
         <header class="glass-panel header">
             <div class="header-titles">
                 <h1>WordFlow Dashboard</h1>
@@ -21,7 +20,6 @@
             <div class="header-controls">
                 <span id="sys-status" class="status-badge">Awaiting Run</span>
                 
-                <!-- Native Browser HTML5 Folder Picker -->
                 <label for="folder-input" class="btn primary-btn">
                     Select Run Directory
                 </label>
@@ -29,10 +27,8 @@
             </div>
         </header>
 
-        <!-- Main Dashboard Content (Hidden initially) -->
         <main id="main-content" class="dashboard-grid disabled">
             
-            <!-- Stats Row -->
             <section class="glass-panel stats-container">
                 <div class="stat-card">
                     <span class="stat-label">Model Parameters</span>
@@ -72,7 +68,6 @@
                 </div>
             </section>
 
-            <!-- Charts Row -->
             <section class="charts-container">
                 <div class="glass-panel chart-box">
                     <h3>Learning Curve</h3>
@@ -88,7 +83,6 @@
                 </div>
             </section>
 
-            <!-- Inference Row -->
             <section class="inference-container">
                 <div class="glass-panel inference-card generate-card">
                     <div class="card-header">
@@ -119,7 +113,6 @@
         </main>
     </div>
 
-    <!-- Overlay Loading -->
     <div id="loading-overlay" class="hidden">
         <div class="spinner"></div>
         <p id="loading-text">Processing...</p>

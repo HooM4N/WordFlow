@@ -4,7 +4,6 @@ import logging
 from datetime import datetime
 from argparse import ArgumentParser
 
-# Add project root to sys.path so we can import from src
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import torch
@@ -19,8 +18,6 @@ from src.model import WordFlowModel
 from src.trainer import trainer
 
 def setup_run_directory_and_logger(config: WordFlowConfig) -> str:
-    """Creates the timestamped run directory and configures logging"""
-    # Resolve runs_dir relative to project root
     project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
     runs_dir = os.path.join(project_root, config.runs_dir)
     
@@ -42,7 +39,6 @@ def setup_run_directory_and_logger(config: WordFlowConfig) -> str:
 def get_args():
     parser = ArgumentParser(description="WordFlow: Word-Level Language Modeling with RNNs")
     
-    # Default to the config.yaml located in the root/configs dir
     default_config = os.path.join(os.path.dirname(__file__), '..', 'configs', 'config.yaml')
     default_config = os.path.abspath(default_config)
     
@@ -51,6 +47,11 @@ def get_args():
     return parser.parse_args()
 
 def main():
+    """
+    Entry point for executing the model training pipeline.
+
+    *WordFlow: Word-Level Language Modeling with RNNs GiTHub.com/HooM4N/WordFlow*
+    """
     args = get_args()
     
     config = WordFlowConfig.from_yaml(args.config_path)
@@ -65,8 +66,6 @@ def main():
 
     project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
-    # 1. Load Data
-    logger.info("Loading training corpus...")
     train_data_path = os.path.join(project_root, config.data.train_data_path)
     train_corpus = get_data(train_data_path)
     
@@ -74,11 +73,8 @@ def main():
     if config.data.val_data_path:
         val_data_path = os.path.join(project_root, config.data.val_data_path)
         if os.path.exists(val_data_path):
-            logger.info("Loading validation corpus...")
             val_corpus = get_data(val_data_path)
 
-    # 2. Tokenization
-    logger.info("Building vocabulary...")
     tokenizer = Tokenizer(
         max_tokens=config.data.max_vocab_size, 
         lowercase=config.data.tokenizer_lowercase
@@ -86,9 +82,7 @@ def main():
     tokenizer.build_vocab([train_corpus])
     
     train_ids = tokenizer.encode(train_corpus)
-    logger.info(f"Training corpus length: {len(train_ids):,} tokens")
 
-    # 3. DataLoaders
     train_ds = TruncatedBPTTDataset(train_ids, batch_size=config.train.batch_size, seq_len=config.train.seq_len)
     train_loader = DataLoader(train_ds, batch_size=1, shuffle=False, pin_memory=True, collate_fn=bptt_collate)
     
@@ -98,7 +92,6 @@ def main():
         val_ds = TruncatedBPTTDataset(val_ids, batch_size=config.train.batch_size, seq_len=config.train.seq_len)
         val_loader = DataLoader(val_ds, batch_size=1, shuffle=False, pin_memory=True, collate_fn=bptt_collate)
 
-    # 4. Model
     model = WordFlowModel(
         vocab_size=tokenizer.get_vocab_size(),
         embedding_dim=config.model.embedding_dim,
@@ -111,17 +104,13 @@ def main():
         padding_idx=tokenizer.token_to_id("<pad>")
     ).to(device)
 
-    # Log parameter count
     total_params = sum(p.numel() for p in model.parameters())
     logger.info(f"WordFlowModel initialized with {total_params:,} parameters.")
 
-    # 5. Training Components
     loss_fn = nn.CrossEntropyLoss(ignore_index=tokenizer.token_to_id("<pad>"))
     optimizer = torch.optim.AdamW(model.parameters(), lr=config.train.lr, weight_decay=config.train.weight_decay)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=config.train.n_epochs, eta_min=config.train.eta_min)
 
-    # 6. Training Loop
-    logger.info("Beginning training loop...")
     trainer(
         model=model,
         optimizer=optimizer,
