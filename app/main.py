@@ -9,7 +9,6 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import torch
 
-# Add the project root to sys.path so we can import from src/
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from src.config import WordFlowConfig
@@ -19,7 +18,6 @@ from src.inference import generate_story, get_similar_words
 
 app = FastAPI(title="WordFlow Dashboard")
 
-# Ensure static folder exists contextually
 static_dir = os.path.join(os.path.dirname(__file__), "static")
 os.makedirs(static_dir, exist_ok=True)
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
@@ -50,7 +48,6 @@ async def load_run(
         temp_dir = os.path.join(os.path.dirname(__file__), ".temp_run")
         os.makedirs(temp_dir, exist_ok=True)
         
-        # Save files locally to load via PyTorch / standard python I/O
         files_map = {
             "checkpoint_best.pt": checkpoint,
             "training_logs.json": logs,
@@ -68,16 +65,14 @@ async def load_run(
             config_data = json.load(f)
         state.config = WordFlowConfig(**config_data)
         
-        # Load Logs
+
         with open(os.path.join(temp_dir, "training_logs.json"), "r", encoding="utf-8") as f:
             logs_data = json.load(f)
             
-        # Load Tokenizer
         state.tokenizer = Tokenizer.load_from_file(os.path.join(temp_dir, "tokenizer.json"))
         if state.tokenizer is None:
             raise ValueError("Failed to load tokenizer.")
             
-        # Initialize and Load Model
         state.model = WordFlowModel(
             vocab_size=state.tokenizer.get_vocab_size(),
             embedding_dim=state.config.model.embedding_dim,
@@ -94,7 +89,7 @@ async def load_run(
         state.model.load_state_dict(torch.load(checkpoint_path, map_location=state.device, weights_only=True))
         state.model.eval()
         
-        # Calculate Stats (Deduplicate tied weights using a set)
+
         total_params = sum(p.numel() for p in set(state.model.parameters()))
         
         actual_epochs = len(logs_data.get("train_loss", []))

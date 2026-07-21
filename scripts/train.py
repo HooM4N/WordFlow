@@ -1,7 +1,11 @@
 import os
+import sys
 import logging
 from datetime import datetime
 from argparse import ArgumentParser
+
+# Add project root to sys.path so we can import from src
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import torch
 import torch.nn as nn
@@ -16,8 +20,12 @@ from src.trainer import trainer
 
 def setup_run_directory_and_logger(config: WordFlowConfig) -> str:
     """Creates the timestamped run directory and configures logging"""
+    # Resolve runs_dir relative to project root
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    runs_dir = os.path.join(project_root, config.runs_dir)
+    
     run_name = datetime.now().strftime("wordflow_run_%Y_%m_%d_%H_%M")
-    run_dir = os.path.join(config.runs_dir, run_name)
+    run_dir = os.path.join(runs_dir, run_name)
     os.makedirs(run_dir, exist_ok=True)
 
     logging.basicConfig(
@@ -33,7 +41,12 @@ def setup_run_directory_and_logger(config: WordFlowConfig) -> str:
 
 def get_args():
     parser = ArgumentParser(description="WordFlow: Word-Level Language Modeling with RNNs")
-    parser.add_argument("--config_path", type=str, default="configs/config.yaml",
+    
+    # Default to the config.yaml located in the root/configs dir
+    default_config = os.path.join(os.path.dirname(__file__), '..', 'configs', 'config.yaml')
+    default_config = os.path.abspath(default_config)
+    
+    parser.add_argument("--config_path", type=str, default=default_config,
                         help="Path to config file (yaml)")
     return parser.parse_args()
 
@@ -50,14 +63,19 @@ def main():
     torch.manual_seed(config.seed)
     logger.info(f"Using device: {device.type}")
 
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+
     # 1. Load Data
     logger.info("Loading training corpus...")
-    train_corpus = get_data(config.data.train_data_path)
+    train_data_path = os.path.join(project_root, config.data.train_data_path)
+    train_corpus = get_data(train_data_path)
     
     val_corpus = None
-    if config.data.val_data_path and os.path.exists(config.data.val_data_path):
-        logger.info("Loading validation corpus...")
-        val_corpus = get_data(config.data.val_data_path)
+    if config.data.val_data_path:
+        val_data_path = os.path.join(project_root, config.data.val_data_path)
+        if os.path.exists(val_data_path):
+            logger.info("Loading validation corpus...")
+            val_corpus = get_data(val_data_path)
 
     # 2. Tokenization
     logger.info("Building vocabulary...")
