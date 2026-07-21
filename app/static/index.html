@@ -3,201 +3,127 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WordFlow Experiment Manager</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Chart.js for Plots -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- FontAwesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <!-- Custom CSS -->
+    <title>WordFlow Dashboard</title>
     <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body class="bg-gray-900 text-gray-100 font-sans h-screen flex overflow-hidden">
+<body>
+    <div class="dashboard-container">
+        <!-- Header -->
+        <header class="glass-panel header">
+            <div class="header-titles">
+                <h1>WordFlow Dashboard</h1>
+                <a href="https://GitHub.com/HooM4N/WordFlow" target="_blank" class="github-link">
+                    <svg height="20" width="20" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path></svg>
+                    GitHub.com/HooM4N/WordFlow
+                </a>
+            </div>
+            <div class="header-controls">
+                <span id="sys-status" class="status-badge">Awaiting Run</span>
+                
+                <!-- Native Browser HTML5 Folder Picker -->
+                <label for="folder-input" class="btn primary-btn">
+                    Select Run Directory
+                </label>
+                <input type="file" id="folder-input" webkitdirectory directory multiple class="hidden-input">
+            </div>
+        </header>
 
-    <!-- Sidebar -->
-    <aside class="w-72 bg-gray-800 border-r border-gray-700 flex flex-col h-full z-10 shadow-xl">
-        <div class="p-6 border-b border-gray-700 text-center">
-            <h1 class="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400">
-                <i class="fa-solid fa-water"></i> WordFlow
-            </h1>
-            <p class="text-xs text-gray-400 mt-2">Word-Level Language Modeling</p>
-        </div>
-
-        <div class="p-6 flex-grow overflow-y-auto">
-            <h2 class="text-sm font-semibold text-gray-400 mb-2 uppercase tracking-wider">Experiment Runs</h2>
-            <select id="runSelect" class="w-full bg-gray-900 border border-gray-600 rounded-lg p-2 text-sm focus:ring-blue-500 focus:border-blue-500 mb-4">
-                <option value="">-- Select a Run --</option>
-            </select>
-            <button id="loadRunBtn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2 px-4 rounded-lg transition-colors" disabled>
-                <i class="fa-solid fa-microchip"></i> Load Model into Memory
-            </button>
-            <div id="loadStatus" class="mt-3 text-sm text-center hidden"></div>
-        </div>
-    </aside>
-
-    <!-- Main Content Area -->
-    <main class="flex-1 p-8 overflow-y-auto h-full relative">
-        
-        <!-- Configuration Dashboard (Appears on selection) -->
-        <div id="configPanel" class="grid grid-cols-3 gap-6 mb-8 opacity-0 transition-opacity duration-300 pointer-events-none">
+        <!-- Main Dashboard Content (Hidden initially) -->
+        <main id="main-content" class="dashboard-grid disabled">
             
-            <!-- Model Architecture -->
-            <div class="bg-gray-800 rounded-xl border border-gray-700 shadow-lg overflow-hidden flex flex-col">
-                <div class="bg-gray-700/50 px-4 py-3 border-b border-gray-700 font-bold text-blue-400 text-sm tracking-wide flex items-center gap-2">
-                    <i class="fa-solid fa-network-wired"></i> Model Architecture
+            <!-- Stats Row -->
+            <section class="glass-panel stats-container">
+                <div class="stat-card">
+                    <span class="stat-label">Model Parameters</span>
+                    <span class="stat-val" id="stat-params">-</span>
                 </div>
-                <div class="p-4 text-sm flex-1 flex flex-col justify-between space-y-2">
-                    <div class="flex justify-between items-center border-b border-gray-700/50 pb-1">
-                        <span class="text-gray-400">Total Parameters</span>
-                        <span id="cfgParams" class="font-mono text-xs bg-gray-900 px-2 py-1 rounded text-gray-400">Load to View</span>
-                    </div>
-                    <div class="flex justify-between items-center border-b border-gray-700/50 pb-1">
-                        <span class="text-gray-400">Embedding / Hidden</span>
-                        <span id="cfgDims" class="font-mono text-gray-100">-</span>
-                    </div>
-                    <div class="flex justify-between items-center border-b border-gray-700/50 pb-1">
-                        <span class="text-gray-400">GRU Layers</span>
-                        <span id="cfgLayers" class="font-mono text-gray-100">-</span>
-                    </div>
-                    <div class="flex justify-between items-center border-b border-gray-700/50 pb-1">
-                        <span class="text-gray-400">Dropouts (Emb/Rnn/Out)</span>
-                        <span id="cfgDrops" class="font-mono text-gray-100">-</span>
-                    </div>
-                    <div class="flex justify-between items-center">
-                        <span class="text-gray-400">Tied Weights</span>
-                        <span id="cfgTie" class="font-mono text-gray-100">-</span>
-                    </div>
+                <div class="stat-card">
+                    <span class="stat-label">Embedding Dimension</span>
+                    <span class="stat-val" id="stat-emb">-</span>
                 </div>
-            </div>
+                <div class="stat-card">
+                    <span class="stat-label">Hidden Dimension</span>
+                    <span class="stat-val" id="stat-hidden">-</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">GRU Layers Count</span>
+                    <span class="stat-val" id="stat-layers">-</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Sequence Length</span>
+                    <span class="stat-val" id="stat-seq">-</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Total Epochs</span>
+                    <span class="stat-val" id="stat-epochs">-</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Initial Learn Rate</span>
+                    <span class="stat-val" id="stat-lr">-</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Weight Decay</span>
+                    <span class="stat-val" id="stat-wd">-</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Avg Epoch Train Time</span>
+                    <span class="stat-val" id="stat-time">-</span>
+                </div>
+            </section>
 
-            <!-- Training Hyperparameters -->
-            <div class="bg-gray-800 rounded-xl border border-gray-700 shadow-lg overflow-hidden flex flex-col">
-                <div class="bg-gray-700/50 px-4 py-3 border-b border-gray-700 font-bold text-rose-400 text-sm tracking-wide flex items-center gap-2">
-                    <i class="fa-solid fa-stopwatch"></i> Training Params
+            <!-- Charts Row -->
+            <section class="charts-container">
+                <div class="glass-panel chart-box">
+                    <h3>Learning Curve</h3>
+                    <div class="canvas-wrapper"><canvas id="chart-loss"></canvas></div>
                 </div>
-                <div class="p-4 text-sm flex-1 flex flex-col justify-between space-y-2">
-                    <div class="flex justify-between items-center border-b border-gray-700/50 pb-1">
-                        <span class="text-gray-400">Seq Length / Batch</span>
-                        <span id="cfgSeqBatch" class="font-mono text-gray-100">-</span>
-                    </div>
-                    <div class="flex justify-between items-center border-b border-gray-700/50 pb-1">
-                        <span class="text-gray-400">Epochs</span>
-                        <span id="cfgEpochs" class="font-mono text-gray-100">-</span>
-                    </div>
-                    <div class="flex justify-between items-center border-b border-gray-700/50 pb-1">
-                        <span class="text-gray-400">Learning Rate (Max)</span>
-                        <span id="cfgLr" class="font-mono text-gray-100">-</span>
-                    </div>
-                    <div class="flex justify-between items-center border-b border-gray-700/50 pb-1">
-                        <span class="text-gray-400">Early Stop Patience</span>
-                        <span id="cfgEs" class="font-mono text-gray-100">-</span>
-                    </div>
-                    <div class="flex justify-between items-center">
-                        <span class="text-gray-400">Mixed Precision</span>
-                        <span id="cfgAmp" class="font-mono text-gray-100">-</span>
-                    </div>
+                <div class="glass-panel chart-box">
+                    <h3>Validation Perplexity</h3>
+                    <div class="canvas-wrapper"><canvas id="chart-ppl"></canvas></div>
                 </div>
-            </div>
+                <div class="glass-panel chart-box">
+                    <h3>Learning Rate Schedule</h3>
+                    <div class="canvas-wrapper"><canvas id="chart-lr"></canvas></div>
+                </div>
+            </section>
 
-            <!-- Data & Environment -->
-            <div class="bg-gray-800 rounded-xl border border-gray-700 shadow-lg overflow-hidden flex flex-col">
-                <div class="bg-gray-700/50 px-4 py-3 border-b border-gray-700 font-bold text-emerald-400 text-sm tracking-wide flex items-center gap-2">
-                    <i class="fa-solid fa-database"></i> Data & Environment
-                </div>
-                <div class="p-4 text-sm flex-1 flex flex-col justify-between space-y-2">
-                    <div class="flex justify-between items-center border-b border-gray-700/50 pb-1">
-                        <span class="text-gray-400">Vocab Max Limit</span>
-                        <span id="cfgVocab" class="font-mono text-gray-100">-</span>
+            <!-- Inference Row -->
+            <section class="inference-container">
+                <div class="glass-panel inference-card generate-card">
+                    <div class="card-header">
+                        <h3>Story Generator</h3>
+                        <div class="controls row-controls">
+                            <input type="number" id="inp-len" placeholder="Max Len" value="150" min="10" max="1000">
+                            <input type="number" id="inp-temp" placeholder="Temp" value="0.8" step="0.05" min="0.1" max="2.0">
+                            <input type="number" id="inp-seed" placeholder="Seed (Opt)">
+                            <button id="btn-generate" class="btn action-btn">Generate</button>
+                        </div>
                     </div>
-                    <div class="flex justify-between items-center border-b border-gray-700/50 pb-1">
-                        <span class="text-gray-400">Tokenizer Lowercase</span>
-                        <span id="cfgLower" class="font-mono text-gray-100">-</span>
-                    </div>
-                    <div class="flex justify-between items-center border-b border-gray-700/50 pb-1">
-                        <span class="text-gray-400">Random Seed</span>
-                        <span id="cfgSeed" class="font-mono text-gray-100">-</span>
-                    </div>
-                    <div class="flex justify-between items-center border-b border-gray-700/50 pb-1">
-                        <span class="text-gray-400">Val Split Ratio</span>
-                        <span id="cfgSplit" class="font-mono text-gray-100">-</span>
-                    </div>
-                    <div class="flex justify-between items-center">
-                        <span class="text-gray-400">Use Accelerator</span>
-                        <span id="cfgAccel" class="font-mono text-gray-100">-</span>
-                    </div>
-                </div>
-            </div>
-
-        </div>
-
-        <!-- Charts Row -->
-        <div id="chartsPanel" class="grid grid-cols-2 gap-8 mb-8 opacity-0 transition-opacity duration-300">
-            <div class="bg-gray-800 p-4 rounded-xl border border-gray-700 shadow-lg flex flex-col">
-                <h3 class="text-sm font-semibold text-gray-400 mb-4 uppercase tracking-wider flex-none">Training vs Validation Loss</h3>
-                <div class="relative w-full h-64 flex-1">
-                    <canvas id="lossChart"></canvas>
-                </div>
-            </div>
-            <div class="bg-gray-800 p-4 rounded-xl border border-gray-700 shadow-lg flex flex-col">
-                <h3 class="text-sm font-semibold text-gray-400 mb-4 uppercase tracking-wider flex-none">Validation Perplexity</h3>
-                <div class="relative w-full h-64 flex-1">
-                    <canvas id="pplChart"></canvas>
-                </div>
-            </div>
-        </div>
-
-        <!-- Inference Row -->
-        <div id="inferencePanel" class="grid grid-cols-2 gap-8 opacity-50 pointer-events-none transition-opacity duration-300">
-            
-            <!-- Generation Box -->
-            <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg flex flex-col">
-                <h3 class="text-lg font-bold text-gray-100 mb-4 border-b border-gray-700 pb-2"><i class="fa-solid fa-wand-magic-sparkles text-emerald-400"></i> Story Generation</h3>
-                
-                <p class="text-sm text-gray-400 mb-4">Click generate to start a brand new story from the model.</p>
-                
-                <div class="grid grid-cols-2 gap-4 mb-4">
-                    <div>
-                        <label class="text-xs text-gray-400 uppercase mb-1">Max Tokens (<span id="maxTokensVal">100</span>)</label>
-                        <input type="range" id="maxTokens" min="10" max="300" value="100" class="w-full accent-emerald-500">
-                    </div>
-                    <div>
-                        <label class="text-xs text-gray-400 uppercase mb-1">Temperature (<span id="tempVal">0.8</span>)</label>
-                        <input type="range" id="temp" min="0.1" max="1.5" step="0.1" value="0.8" class="w-full accent-emerald-500">
-                    </div>
+                    <div class="output-box scroll-box" id="out-story">Load a model to generate text...</div>
                 </div>
 
-                <button id="generateBtn" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2 px-4 rounded-lg transition-colors mb-4">
-                    Generate Story
-                </button>
-
-                <div class="flex-1 bg-gray-900 border border-gray-700 rounded-lg p-4 font-mono text-sm text-gray-300 overflow-y-auto min-h-[150px] max-h-[300px]" id="genOutput">
-                    Output will appear here...
+                <div class="glass-panel inference-card similar-card">
+                    <div class="card-header">
+                        <h3>Semantic Similarity (Top 5)</h3>
+                        <div class="controls row-controls">
+                            <input type="text" id="inp-word" placeholder="Enter target word...">
+                            <button id="btn-similar" class="btn action-btn">Search</button>
+                        </div>
+                    </div>
+                    <div class="output-box" id="out-similar">
+                        <div class="empty-state">Load a model to search embeddings...</div>
+                    </div>
                 </div>
-            </div>
+            </section>
+        </main>
+    </div>
 
-            <!-- Similarity Box -->
-            <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg flex flex-col">
-                <h3 class="text-lg font-bold text-gray-100 mb-4 border-b border-gray-700 pb-2"><i class="fa-solid fa-diagram-project text-blue-400"></i> Embedding Explorer</h3>
-                
-                <p class="text-sm text-gray-400 mb-4">Calculate Cosine Similarity inside the WordFlow embedding matrix to find the closest semantic neighbors.</p>
-
-                <label class="text-xs text-gray-400 uppercase mb-1">Target Word</label>
-                <div class="flex gap-2 mb-6">
-                    <input type="text" id="simWord" class="flex-1 bg-gray-900 border border-gray-600 rounded-lg p-3 text-sm focus:ring-blue-500 focus:border-blue-500" placeholder="e.g. happy">
-                    <button id="similarBtn" class="bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2 px-6 rounded-lg transition-colors">
-                        Search
-                    </button>
-                </div>
-
-                <h4 class="text-xs font-semibold text-gray-400 mb-2 uppercase">Results</h4>
-                <div class="flex-1 bg-gray-900 border border-gray-700 rounded-lg p-4 overflow-y-auto max-h-[300px]" id="simOutput">
-                    <p class="text-sm text-gray-500 italic">Enter a word to see its embedding neighbors...</p>
-                </div>
-            </div>
-        </div>
-
-    </main>
+    <!-- Overlay Loading -->
+    <div id="loading-overlay" class="hidden">
+        <div class="spinner"></div>
+        <p id="loading-text">Processing...</p>
+    </div>
 
     <script src="/static/script.js"></script>
 </body>
