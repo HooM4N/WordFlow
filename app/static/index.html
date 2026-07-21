@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WordFlow Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Header -->
+        <header class="glass-panel header">
+            <div class="header-titles">
+                <h1>WordFlow Dashboard</h1>
+                <a href="https://GitHub.com/HooM4N/WordFlow" target="_blank" class="github-link">
+                    <svg height="20" width="20" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path></svg>
+                    GitHub.com/HooM4N/WordFlow
+                </a>
+            </div>
+            <div class="header-controls">
+                <span id="sys-status" class="status-badge">Awaiting Run</span>
+                
+                <!-- Native Browser HTML5 Folder Picker -->
+                <label for="folder-input" class="btn primary-btn">
+                    Select Run Directory
+                </label>
+                <input type="file" id="folder-input" webkitdirectory directory multiple class="hidden-input">
+            </div>
+        </header>
+
+        <!-- Main Dashboard Content (Hidden initially) -->
+        <main id="main-content" class="dashboard-grid disabled">
+            
+            <!-- Stats Row -->
+            <section class="glass-panel stats-container">
+                <div class="stat-card">
+                    <span class="stat-label">Model Parameters</span>
+                    <span class="stat-val" id="stat-params">-</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Embedding Dimension</span>
+                    <span class="stat-val" id="stat-emb">-</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Hidden Dimension</span>
+                    <span class="stat-val" id="stat-hidden">-</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">GRU Layers Count</span>
+                    <span class="stat-val" id="stat-layers">-</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Sequence Length</span>
+                    <span class="stat-val" id="stat-seq">-</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Total Epochs</span>
+                    <span class="stat-val" id="stat-epochs">-</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Initial Learn Rate</span>
+                    <span class="stat-val" id="stat-lr">-</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Weight Decay</span>
+                    <span class="stat-val" id="stat-wd">-</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Avg Epoch Train Time</span>
+                    <span class="stat-val" id="stat-time">-</span>
+                </div>
+            </section>
+
+            <!-- Charts Row -->
+            <section class="charts-container">
+                <div class="glass-panel chart-box">
+                    <h3>Learning Curve</h3>
+                    <div class="canvas-wrapper"><canvas id="chart-loss"></canvas></div>
+                </div>
+                <div class="glass-panel chart-box">
+                    <h3>Validation Perplexity</h3>
+                    <div class="canvas-wrapper"><canvas id="chart-ppl"></canvas></div>
+                </div>
+                <div class="glass-panel chart-box">
+                    <h3>Learning Rate Schedule</h3>
+                    <div class="canvas-wrapper"><canvas id="chart-lr"></canvas></div>
+                </div>
+            </section>
+
+            <!-- Inference Row -->
+            <section class="inference-container">
+                <div class="glass-panel inference-card generate-card">
+                    <div class="card-header">
+                        <h3>Story Generator</h3>
+                        <div class="controls row-controls">
+                            <input type="number" id="inp-len" placeholder="Max Len" value="150" min="10" max="1000">
+                            <input type="number" id="inp-temp" placeholder="Temp" value="0.8" step="0.05" min="0.1" max="2.0">
+                            <input type="number" id="inp-seed" placeholder="Seed (Opt)">
+                            <button id="btn-generate" class="btn action-btn">Generate</button>
+                        </div>
+                    </div>
+                    <div class="output-box scroll-box" id="out-story">Load a model to generate text...</div>
+                </div>
+
+                <div class="glass-panel inference-card similar-card">
+                    <div class="card-header">
+                        <h3>Semantic Similarity (Top 5)</h3>
+                        <div class="controls row-controls">
+                            <input type="text" id="inp-word" placeholder="Enter target word...">
+                            <button id="btn-similar" class="btn action-btn">Search</button>
+                        </div>
+                    </div>
+                    <div class="output-box" id="out-similar">
+                        <div class="empty-state">Load a model to search embeddings...</div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Overlay Loading -->
+    <div id="loading-overlay" class="hidden">
+        <div class="spinner"></div>
+        <p id="loading-text">Processing...</p>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>
