@@ -28,16 +28,9 @@ def trainer(
     tokenizer: Tokenizer
 ) -> nn.Module:
     """
-    Main training loop for Truncated BPTT Word-Level Modeling.
-    
-    Features:
-        - Mixed Precision (AMP)
-        - Gradient Clipping
-        - Cosine Annealing LR Scheduling
-        - Run artifact tracking (JSON logs, Model configs)
-        - Early stopping and graceful KeyboardInterrupt recovery
-        
-    WordFlow: Word-Level Language Modeling with RNNs GiTHub.com/HooM4N/WordFlow
+    Main training loop for the WordFlow model using Truncated BPTT.
+
+    *WordFlow: Word-Level Language Modeling with RNNs GiTHub.com/HooM4N/WordFlow*
     """
     scaler = torch.amp.GradScaler(enabled=config.train.enable_mixed_precision)
     train_logs = {"train_loss": [], "val_loss": [], "val_perplexity": [], "lr": [], "epoch_time": []}
@@ -68,7 +61,7 @@ def trainer(
                     device_type=device.type, 
                     dtype=torch.float16, 
                     enabled=config.train.enable_mixed_precision
-                    ):
+                ):
                     logits, hidden = model(X, hidden)
                     loss = loss_fn(logits, Y)
                     
@@ -81,7 +74,6 @@ def trainer(
                 scaler.step(optimizer)
                 scaler.update()
 
-            # End of epoch calculations
             avg_train_loss = total_loss / len(train_loader)
             train_logs["train_loss"].append(avg_train_loss)
             train_logs["lr"].append(optimizer.param_groups[0]['lr'])
@@ -99,12 +91,10 @@ def trainer(
             train_logs["epoch_time"].append((datetime.now() - epoch_start).total_seconds())
             logger.info(log_msg)
 
-            # Checkpointing
             torch.save(model.state_dict(), last_ckpnt_path)
 
             scheduler.step()
 
-            # Early Stopping and Best Model tracking
             if val_loader:
                 if val_loss < best_loss:
                     best_loss = val_loss
@@ -122,12 +112,10 @@ def trainer(
         logger.warning("Training interrupted by user (KeyboardInterrupt).")
 
     finally:
-        # Wrap up training gracefully
         if os.path.exists(best_ckpnt_path):
             model.load_state_dict(torch.load(best_ckpnt_path, map_location=device, weights_only=True))
             logger.info(f"Restored best model from epoch {best_epoch}.")
 
-        # Save final artifacts
         with open(os.path.join(run_dir, "training_logs.json"), "w") as f:
             json.dump(train_logs, f, indent=2)
             

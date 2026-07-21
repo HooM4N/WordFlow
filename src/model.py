@@ -3,21 +3,9 @@ import torch.nn as nn
 
 class WordFlowModel(nn.Module):
     """
-    Recurrent Neural Network Model for Word-Level Language Modeling.
-    
-    Args:
-        vocab_size (int): Size of the tokenizer's vocabulary.
-        embedding_dim (int, optional): Dimensionality of word embeddings. Defaults to 300.
-        hidden_dim (int, optional): Dimensionality of GRU hidden states. Must equal 
-                                    `embedding_dim` if `tie_weights` is True. Defaults to 300.
-        num_layers (int, optional): Number of stacked GRU layers. Defaults to 1.
-        rnn_dropout_p (float, optional): Dropout between GRU layers. Defaults to 0.25.
-        emb_dropout_p (float, optional): Dropout after Embedding layer. Defaults to 0.2.
-        out_dropout_p (float, optional): Dropout before final Linear layer. Defaults to 0.2.
-        tie_weights (bool, optional): Whether to share embedding and output weights. Defaults to True.
-        padding_idx (int, optional): Vocabulary padding index. Defaults to 0.
-        
-    WordFlow: Word-Level Language Modeling with RNNs GiTHub.com/HooM4N/WordFlow
+    A GRU-based recurrent neural network for word-level language modeling.
+
+    *WordFlow: Word-Level Language Modeling with RNNs GiTHub.com/HooM4N/WordFlow*
     """
     def __init__(
         self, 
@@ -51,7 +39,6 @@ class WordFlowModel(nn.Module):
         )
         self.out_dropout = nn.Dropout(out_dropout_p)
 
-        # classification Head
         self.fc = nn.Linear(hidden_dim, vocab_size, bias=not tie_weights) 
         if tie_weights: 
             self.fc.weight = self.embedding.weight 
@@ -59,7 +46,6 @@ class WordFlowModel(nn.Module):
         self._init_weights()
 
     def _init_weights(self):
-        """Initializes model weights uniformly."""
         initrange = 0.1
         if not self.tie_weights:
             nn.init.uniform_(self.fc.weight, -initrange, initrange)
@@ -76,31 +62,14 @@ class WordFlowModel(nn.Module):
         x: torch.Tensor, 
         hidden: torch.Tensor = None, 
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        """
-        Forward pass of the WordFlow Model.
-        
-        Args:
-            x (torch.Tensor): Input tensor of token IDs, shape (N, L).
-            hidden (torch.Tensor, optional): Previous GRU hidden state. 
-                                             Defaults to None.
-            
-        Returns:
-            tuple[torch.Tensor, torch.Tensor]:
-                - Output logits of shape (N, vocab_size, L)
-                - Updated hidden state of shape (num_layers, N, hidden_dim)
-        """
-        # embedding
         x = self.embedding(x)  # (N, L, E)
         x = self.emb_dropout(x)
 
-        # rnn
-        x, hidden = self.rnn(x, hidden)  # x: (N, L, H), hidden: (num_layers, N, H)
+        x, hidden = self.rnn(x, hidden)  # (N, L, H)
         
-        # classification head
         x = self.out_dropout(x)
         logits = self.fc(x) # (N, L, vocab_size)
         
-        # cross entropy loss expects (N, vocab_size, L)
         logits = logits.permute(0, 2, 1) # (N, vocab_size, L)
         
         return logits, hidden

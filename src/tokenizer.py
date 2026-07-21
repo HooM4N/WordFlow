@@ -1,7 +1,6 @@
 import os
-import re
 import json
-from typing import Iterable, Callable, List
+from typing import Iterable, Callable
 from collections import Counter
 import logging
 
@@ -9,7 +8,9 @@ logger = logging.getLogger(__name__)
 
 class Tokenizer:
     """
-    Big Beautiful Tokenizer
+    An Awsome Word-Level tokenizer that maps strings to integer token IDs.
+
+    *WordFlow: Word-Level Language Modeling with RNNs GiTHub.com/HooM4N/WordFlow*
     """
     def __init__(
         self,
@@ -19,7 +20,6 @@ class Tokenizer:
         lowercase: bool = True,
         preprocessor: Callable = None,
     ):
-
         assert unk_token in special_tokens
         if preprocessor is not None:
             assert callable(preprocessor)
@@ -114,12 +114,10 @@ class Tokenizer:
             return None
 
     def encode(self, text: str) -> list[int]:
-
         assert isinstance(text, str)
         return [self.word2idx.get(t, self.unk_id) for t in self.tokenize(text)]
 
     def decode(self, token_ids: list[int]) -> str:
-
         assert isinstance(token_ids, list)
         vocab_len = len(self.idx2word)
         return " ".join(
@@ -128,9 +126,7 @@ class Tokenizer:
         )
 
     def token_to_id(self, token: str) -> int:
-
         return self.word2idx.get(token, self.unk_id)
 
     def id_to_token(self, id_: int) -> str:
-
         return self.idx2word[id_] if 0 <= id_ < len(self.idx2word) else self.unk_token

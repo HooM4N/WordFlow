@@ -8,10 +8,9 @@ _PUNK_TABLE = str.maketrans({p: f" {p} " for p in string.punctuation})
 
 def text_preprocessor(text: str) -> str:
     """
-    A simple text preprocessing function, it lowercase, merger multiple breaklines,
-    preserve newline markers as <breakline> and end-of-sequence tokens as <eos>.
+    Lowercases text and formats newline and EOS tokens.
 
-    WordFlow: Word-Level Language Modeling with RNNs GiTHub.com/HooM4N/WordFlow
+    *WordFlow: Word-Level Language Modeling with RNNs GiTHub.com/HooM4N/WordFlow*
     """
     text = text.lower()
     text = re.sub(r"\n+", " \n ", text)
@@ -21,12 +20,9 @@ def text_preprocessor(text: str) -> str:
 
 def get_data(data_path: str) -> str:
     """
-    Simple data pipeline that loads the text file, process and return as string.
+    Loads a text file and applies preprocessing.
 
-    Args:
-        data_path (str): path to text data file
-
-    WordFlow: Word-Level Language Modeling with RNNs GiTHub.com/HooM4N/WordFlow
+    *WordFlow: Word-Level Language Modeling with RNNs GiTHub.com/HooM4N/WordFlow*
     """
     try:
         with open(data_path, 'r', encoding='utf-8') as f:

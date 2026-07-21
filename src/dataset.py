@@ -4,19 +4,15 @@ from torch.utils.data import Dataset
 class TruncatedBPTTDataset(Dataset):
     """
     Dataset for Truncated Backpropagation Through Time (BPTT).
-    
-    Transforms a 1D sequence of tokenized corpus IDs into `batch_size` 
-    continuous, parallel streams. Each call to `__getitem__` returns a 
-    slice of length `seq_len` moving sequentially forward through the text.
-    
-    Args:
-        corpus_ids (list[int]): Tokenized corpus as a list of integer IDs.
-        batch_size (int, optional): Number of parallel streams. Defaults to 256.
-        seq_len (int, optional): Length of the sequence per stream. Defaults to 128.
-        
-    WordFlow: Word-Level Language Modeling with RNNs GiTHub.com/HooM4N/WordFlow
-    """
+    Reshapes a 1D token sequence into continuous parallel batches.
 
+    Args:
+        corpus_ids (list[int]): Tokenized corpus as integer IDs.
+        batch_size (int): Number of parallel sequences.
+        seq_len (int): Length of each sequence slice.
+
+    *WordFlow: Word-Level Language Modeling with RNNs GiTHub.com/HooM4N/WordFlow*
+    """
     def __init__(
         self,
         corpus_ids: list[int],
@@ -25,11 +21,9 @@ class TruncatedBPTTDataset(Dataset):
     ):
         full_seq = torch.tensor(corpus_ids, dtype=torch.long)
         
-        # trim sequence length to be evenly divisible by batch_size
         stream_len = full_seq.size(0) // batch_size
         full_seq = full_seq[:stream_len * batch_size]
         
-        # reshape into (batch_size, stream_len)
         self.full_seq = full_seq.view(batch_size, stream_len)
 
         self.seq_len = seq_len
@@ -44,10 +38,9 @@ class TruncatedBPTTDataset(Dataset):
         end = start + self.seq_len
         
         return (
-            self.full_seq[:, start:end],           # X (N, L)
-            self.full_seq[:, start + 1 : end + 1], # Y (N, L)
+            self.full_seq[:, start:end],           # (N, L)
+            self.full_seq[:, start + 1 : end + 1], # (N, L)
         )
-
 
 def bptt_collate(
     batch: list[tuple[torch.Tensor, torch.Tensor]]
