@@ -7,3 +7,4 @@ matplotlib
 fastapi==0.136.3
 uvicorn==0.48.0
 python-multipart
+huggingface_hub==1.17.0
