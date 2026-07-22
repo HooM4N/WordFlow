@@ -1,9 +1,9 @@
-torch
+torch>=2.10.0
 pydantic
 pyyaml
-pandas
+pandas>=2.3.3
 tqdm
 matplotlib
-fastapi
-uvicorn
+fastapi==0.136.3
+uvicorn==0.48.0
 python-multipart
