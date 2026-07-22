@@ -1,4 +1,3 @@
-# downloads latest pre-trained checkpoint from hf
 import os
 from huggingface_hub import snapshot_download
 

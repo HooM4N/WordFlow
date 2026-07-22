@@ -46,9 +46,12 @@ def main():
     
     with open(train_path, "w", encoding="utf-8") as f:
         f.write(train_corpus)
-        
+
+    print(f"Succefully created training data to: {train_path}")
+
     with open(val_path, "w", encoding="utf-8") as f:
         f.write(val_corpus)
+    print(f"Succefully created validation data to: {val_path}")
 
 if __name__ == "__main__":
     main()

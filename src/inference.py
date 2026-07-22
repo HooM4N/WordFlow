@@ -10,7 +10,7 @@ def generate_story(
     tokenizer: Tokenizer, 
     device: torch.device,
     max_tokens: int = 100, 
-    temperature: float = 0.8,
+    temperature: float = 0.4,
     seed: int | None = None
 ) -> str:
     """
