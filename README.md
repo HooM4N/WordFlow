@@ -1,7 +1,7 @@
 # WordFlow 🌊
 
 [![Python](https://img.shields.io/badge/Python-3.12-blue.svg)](https://www.python.org/)
-[![PyTorch](https://img.shields.io/badge/PyTorch-%E2%89%A52.10.0-ee4c2c.svg)](https://pytorch.org/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.10-ee4c2c.svg)](https://pytorch.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.136.3-009688.svg)](https://fastapi.tiangolo.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
@@ -15,7 +15,7 @@ The best-performing model checkpoint is hosted on Hugging Face. You can download
 
 | Run Name | Validation Perplexity | Epochs | Dataset | Hugging Face Repository |
 | :--- | :---: | :---: | :---: | :--- |
-| `wordflow_run_2026_07_20_06_58` | **11.06** | 80 | [TinyStories](https://huggingface.co/datasets/roneneldan/TinyStories) | [HooM4N/WordFlow](https://huggingface.co/hoom4n/WordFlow) |
+| `wordflow_run_2026_07_20_06_58` | **11.06** | 63 | [TinyStories](https://huggingface.co/datasets/roneneldan/TinyStories) | [HooM4N/WordFlow](https://huggingface.co/hoom4n/WordFlow) |
 
 ---
 
@@ -32,27 +32,6 @@ The best-performing model checkpoint is hosted on Hugging Face. You can download
 ## 🧠 Model Architecture (Truncated BPTT)
 
 The model is built around a lightweight but powerful GRU architecture. By utilizing Truncated BPTT, the hidden state of the RNN is preserved and passed between consecutive batches, allowing the model to learn long-term dependencies beyond the fixed sequence length.
-
-```mermaid
-flowchart TD
-    subgraph WordFlow Model
-        A[Input Word Token] --> B(Embedding Layer)
-        B --> C{GRU Layer}
-        C --> D(Dropout)
-        D --> E(Linear Projection)
-        E --> F[Next Word Probabilities]
-    end
-    
-    H_prev((Previous Batch\nHidden State)) -.-> |Detached| C
-    C -.-> |Handover| H_next((Next Batch\nHidden State))
-    B -. Tied Weights .- E
-    
-    style A fill:#bae6fd,stroke:#0284c7,stroke-width:2px,color:#0f172a
-    style F fill:#bae6fd,stroke:#0284c7,stroke-width:2px,color:#0f172a
-    style C fill:#fef08a,stroke:#ca8a04,stroke-width:2px,color:#0f172a
-    style H_prev fill:#e2e8f0,stroke:#64748b,stroke-dasharray: 5 5,color:#0f172a
-    style H_next fill:#e2e8f0,stroke:#64748b,stroke-dasharray: 5 5,color:#0f172a
-```
 
 ---
 
@@ -116,7 +95,7 @@ Below is a summary of the hyperparameters utilized for our best checkpoint (conf
 | Component | Configuration / Value |
 | :--- | :--- |
 | **Dataset** | TinyStories (~16,000 story subset) |
-| **Tokenizer** | Custom Word-Level (Vocab Size: ~25,000) |
+| **Tokenizer** | Custom Word-Level (Vocab Size: ~10,500) |
 | **Model Architecture** | Embedding Dim: 400 <br> Hidden Dim: 400 <br> GRU Layers: 1 <br> Tied Weights: True |
 | **Regularization** | Weight Decay: 0.01 <br> Embedding Dropout: 0.2 <br> RNN Dropout: 0.25 <br> Output Dropout: 0.2 |
 | **Optimizer** | AdamW (Initial LR: 1e-3, min: 5e-5) |
