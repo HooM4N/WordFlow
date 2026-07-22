@@ -29,15 +29,11 @@ The best-performing model checkpoint is hosted on Hugging Face. You can download
 
 ---
 
-## 🧠 Model Architecture (Truncated BPTT)
-
-The model is built around a lightweight but powerful GRU architecture. By utilizing Truncated BPTT, the hidden state of the RNN is preserved and passed between consecutive batches, allowing the model to learn long-term dependencies beyond the fixed sequence length.
-
----
-
 ## 📊 Dashboard & Inference
 
-<img src="app/static/wordflow_dashboard_screenshot.png" alt="wordflow dashboard" width="90%">
+<div align="center">
+  <img src="app/static/wordflow_dashboard_screenshot.png" alt="WordFlow Dashboard" width="90%">
+</div>
 
 The project includes a web interface built with **FastAPI**. It allows you to:
 - Load your model checkpoints directly from your file system.
@@ -45,7 +41,7 @@ The project includes a web interface built with **FastAPI**. It allows you to:
 - **Generate Stories:** Autoregressively sample text using temperature and custom seeds.
 - **Semantic Search:** Query the trained embedding space for cosine similarities (e.g., finding words similar to "king" or "happy").
 
-### Dashboard Quick Start
+### ⚡ Dashboard Quick Start
 
 **Option 1: Using Docker (Recommended)**
 ```bash
@@ -74,15 +70,9 @@ uvicorn app.main:app --host 0.0.0.0 --port 8080
 
 ---
 
-## 🚀 Training Setup & Guide
+## 🚀 Training
 
-### Objective & Data Processing
-The objective of WordFlow is next-word prediction. We utilized the [TinyStories](https://huggingface.co/datasets/roneneldan/TinyStories) dataset. To prepare the data:
-1. Stories are lowercased, concatenated, and joined using a custom `<eos>` token.
-2. Due to backpropagation constraints on memory and gradients, the continuous corpus stream is split into `batch_size` parallel streams.
-3. Each stream is fed in chunks of `seq_len`. The hidden state is detached from the computational graph at the end of each chunk and passed as the initial hidden state to the next chunk.
-
-### Training Quick Start
+### ⏱️ Training Quick Start
 ```bash
 # 1. Fetch and process the TinyStories dataset
 python scripts/get_data.py
@@ -91,18 +81,28 @@ python scripts/get_data.py
 python scripts/train.py --config_path configs/config.yaml
 ```
 
-### Training Configuration Summary
+### 🎯 Objective & Data Processing
+The objective of WordFlow is next-word prediction. We utilized the [TinyStories](https://huggingface.co/datasets/roneneldan/TinyStories) dataset. To prepare the data:
+1. Stories are lowercased, concatenated, and joined using a custom `<eos>` token.
+2. Due to backpropagation constraints on memory and gradients, the continuous corpus stream is split into `batch_size` parallel streams.
+3. Each stream is fed in chunks of `seq_len`. The hidden state is detached from the computational graph at the end of each chunk and passed as the initial hidden state to the next chunk.
+
+### 🧠 Model Architecture (Truncated BPTT)
+The model is built around a lightweight but powerful GRU architecture. By utilizing Truncated BPTT, the hidden state of the RNN is preserved and passed between consecutive batches, allowing the model to learn long-term dependencies beyond the fixed sequence length.
+
+### ⚙️ Training Configuration Summary
 Below is a summary of the hyperparameters utilized for our best checkpoint (configurable via `configs/config.yaml`):
 
-| Component | Configuration / Value |
+<div align="center">
+
+| Component | Setup |
 | :--- | :--- |
-| **Dataset** | TinyStories (~16,000 story subset) |
-| **Tokenizer** | Custom Word-Level (Vocab Size: ~10,500) |
-| **Model Architecture** | Embedding Dim: 400 <br> Hidden Dim: 400 <br> GRU Layers: 1 <br> Tied Weights: True |
-| **Regularization** | Weight Decay: 0.01 <br> Embedding Dropout: 0.2 <br> RNN Dropout: 0.25 <br> Output Dropout: 0.2 |
-| **Optimizer** | AdamW (Initial LR: 1e-3, min: 5e-5) |
-| **Scheduler** | Cosine Annealing LR |
-| **Training Loop** | Batch Size: 128 <br> Sequence Length: 256 <br> Gradient Clipping: 1.0 (Max Norm) <br> Mixed Precision: Enabled |
+| **Optimizer & Loop** | AdamW with learning rate (1e‑3), min (5e‑5) - gradient clipping (max norm 1.0) - batch size (128) - sequence length (256) - Mixed Precision enabled |
+| **Regularization** | Weight decay (0.01) - Embedding dropout (0.2) - RNN dropout (0.25) - Output dropout (0.2) |
+| **Model Architecture** | Embedding Dim (400) - Hidden Dim (400), 1 GRU layer, Tied Weights enabled |
+| **Tokenizer & Data** | Custom Word-Level tokenizer with ~10,500 vocabulary size on TinyStories (~16,000 story subset) |
+
+</div>
 
 ---
 
@@ -126,5 +126,5 @@ wordflow/
     └── trainer.py        # Training loop and evaluation
 ```
 
-## License
+## 📜 License
 This project is open-sourced under the MIT License.
