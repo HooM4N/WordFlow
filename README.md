@@ -37,6 +37,8 @@ The model is built around a lightweight but powerful GRU architecture. By utiliz
 
 ## 📊 Dashboard & Inference
 
+<img src="app/static/wordflow_dashboard_screenshot.png" alt="wordflow dashboard" width="60%">
+
 The project includes a web interface built with **FastAPI**. It allows you to:
 - Load your model checkpoints directly from your file system.
 - View real-time training statistics and loss/perplexity charts.
