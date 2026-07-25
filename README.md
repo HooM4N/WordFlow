@@ -89,7 +89,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 8080
 git clone https://github.com/HooM4N/WordFlow.git wordflow
 cd wordflow
 
-2. Create and activate vitrual environment (recommended)
+# 2. Create and activate vitrual environment (recommended)
 python -m venev .venv
 source .venv/bin/activate
 
