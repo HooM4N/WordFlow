@@ -57,13 +57,13 @@ docker-compose up --build
 ```
 *Navigate to `http://localhost:8080` in your browser.*
 
-**Option 2: Setup locally**
+**Option 2: Setup Locally**
 ```bash
 # 1. Clone repository
 git clone https://github.com/HooM4N/WordFlow.git wordflow
 cd wordflow
 
-2. Create and activate vitrual environment (recommended)
+# 2. Create and activate vitrual environment (recommended)
 python -m venev .venv
 source .venv/bin/activate
 
