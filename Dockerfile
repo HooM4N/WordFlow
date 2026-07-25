@@ -8,7 +8,7 @@ COPY . .
 
 EXPOSE 8080
 
-# add neccassey permission for copying run files into container
+# neccassey permission for copying checkpoint files into container
 RUN useradd -m app && chown -R app:app /usr/local/app
 USER app
 
