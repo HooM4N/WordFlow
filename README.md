@@ -57,7 +57,7 @@ docker-compose up --build
 ```
 *Navigate to `http://localhost:8080` in your browser.*
 
-**Option 2: Native Python Environment**
+**Option 2: Setup locally**
 ```bash
 # 1. Clone repository
 git clone https://github.com/HooM4N/WordFlow.git wordflow
