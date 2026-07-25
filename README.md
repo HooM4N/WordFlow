@@ -45,23 +45,35 @@ The project includes a web interface built with **FastAPI**. It allows you to:
 
 **Option 1: Using Docker (Recommended)**
 ```bash
-# 1. Download the latest pre-trained model from Hugging Face
+# 1. Clone repository
+git clone https://github.com/HooM4N/WordFlow.git wordflow
+cd wordflow
+
+# 2. Download the latest pre-trained model from Hugging Face
 python scripts/download_model.py
 
-# 2. Spin up the dashboard container
+# 3. Spin up the dashboard container
 docker-compose up --build
 ```
 *Navigate to `http://localhost:8080` in your browser.*
 
 **Option 2: Native Python Environment**
 ```bash
-# 1. Install dependencies
+# 1. Clone repository
+git clone https://github.com/HooM4N/WordFlow.git wordflow
+cd wordflow
+
+2. Create and activate vitrual environment (recommended)
+python -m venev .venv
+source .venv/bin/activate
+
+# 3. Install project dependencies
 pip install -r requirements.txt
 
-# 2. Download the latest pre-trained model
+# 4. Download the latest pre-trained model from HF
 python scripts/download_model.py
 
-# 3. Run the FastAPI server
+# 5. Run the FastAPI server
 uvicorn app.main:app --host 0.0.0.0 --port 8080
 ```
 *Navigate to `http://localhost:8080` in your browser.*
@@ -71,13 +83,29 @@ uvicorn app.main:app --host 0.0.0.0 --port 8080
 ---
 
 ## 🚀 Training
-
 ### ⏱️ Training Quick Start
 ```bash
-# 1. Fetch and process the TinyStories dataset
+# 1. Clone repository
+git clone https://github.com/HooM4N/WordFlow.git wordflow
+cd wordflow
+
+2. Create and activate vitrual environment (recommended)
+python -m venev .venv
+source .venv/bin/activate
+
+# 3. Install project dependencies
+# Visit https://pytorch.org/get-started/locally/ to install torch version suitable for your available accelerator.
+pip install -r requirements.txt
+
+# 4. Fetch and process the TinyStories dataset
+# You can configure count of stories to use in training in ths script.
 python scripts/get_data.py
 
-# 2. Run the training pipeline
+# 5. Configure project parameters
+# You can setup batch size, sequence lenght , etc. according to your preference and hardware in config file.
+nano config/config.yml
+
+# 6. Run the training pipeline
 python scripts/train.py --config_path configs/config.yaml
 ```
 
