@@ -8,8 +8,8 @@ logger = logging.getLogger(__name__)
 
 class Tokenizer:
     """
-    An Awsome Word-Level tokenizer that maps strings to integer token IDs.
-
+    Word-Level Tokenizer
+    
     *WordFlow: Word-Level Language Modeling with RNNs GiTHub.com/HooM4N/WordFlow*
     """
     def __init__(
