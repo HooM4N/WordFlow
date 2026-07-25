@@ -21,7 +21,7 @@ The best-performing model checkpoint is hosted on Hugging Face. You can download
 
 ## ✨ Key Features
 
-1. **Truncated BPTT Architecture:** Custom `Dataset` and `collate_fn` implementations that reshape 1D token sequences into continuous parallel batches, allowing hidden states to gracefully hand over across sequence boundaries.
+1. **Truncated BPTT Architecture:** Custom `Dataset` implementation that reshape 1D token sequences into continuous parallel batches, allowing hidden states to gracefully hand over across sequence boundaries.
 2. **Interactive FastAPI Dashboard:** A beautifully designed HTML/CSS/JS frontend to visualize training curves (Chart.js), generate stories autoregressively, and explore semantic word similarities.
 3. **Optimized Training Pipeline:** Features Mixed Precision (AMP), gradient clipping, Weight Tying (Embedding & Fully Connected layers), and Cosine Annealing Learning Rate scheduling.
 4. **Custom Word-Level Tokenizer:** Fast, dependency-free Python tokenizer tailored to build vocabularies and map string text to integer tokens with special token support.
