@@ -103,7 +103,7 @@ python scripts/get_data.py
 
 # 5. Configure project parameters
 # You can setup batch size, sequence lenght , etc. according to your preference and hardware in config file.
-nano config/config.yml
+nano configs/config.yml
 
 # 6. Run the training pipeline
 python scripts/train.py --config_path configs/config.yaml
