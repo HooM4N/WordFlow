@@ -7,6 +7,10 @@
 
 **WordFlow** is a custom-built, word-level language model utilizing Recurrent Neural Networks (GRUs) and trained using **Truncated Backpropagation Through Time (BPTT)**. 
 
+<div align="center">
+  <img src="app/static/images/wordflow_diagram.png" alt="WordFlow Diagram" width="90%">
+</div>
+
 ---
 
 ## 🏆 Latest Checkpoint
@@ -32,7 +36,7 @@ The best-performing model checkpoint is hosted on Hugging Face. You can download
 ## 📊 Dashboard & Inference
 
 <div align="center">
-  <img src="app/static/wordflow_dashboard_screenshot.png" alt="WordFlow Dashboard" width="90%">
+  <img src="app/static/images/wordflow_dashboard_screenshot.png" alt="WordFlow Dashboard" width="90%">
 </div>
 
 The project includes a web interface built with **FastAPI**. It allows you to:
